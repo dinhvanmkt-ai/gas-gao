@@ -172,23 +172,18 @@ export async function POST(req: Request) {
     if (cylinderTxType === 'exchange') {
       // ── CHẾ ĐỘ ĐỔI BÌNH ──────────────────────────────────────────
       // Khách mang vỏ rỗng CỦA KHÁCH đến → cửa hàng lấy đó đổi gas mới.
-      // Bình giao cho khách là TÀI SẢN CỦA KHÁCH → KHÔNG tính gasCylinderQty.
+      // Bình đầy giao cho khách: TÀI SẢN CỦA KHÁCH → xóa khỏi theo dõi của cửa hàng
 
-      // 1. Xuất bình đầy từ kho (at_store_full → trống tạm thời, sẽ xử lý bên dưới)
+      // 1. Lấy bình đầy từ kho và XÓA khỏi hệ thống (nó trở thành tài sản khách)
       const fullCylinders = await prisma.cylinder.findMany({
         where: { status: 'at_store_full' },
         take: totalGasQty,
       })
-      // Bình đầy đã giao: vì là TÀI SẢN KHÁCH nên đánh dấu at_store_empty
-      // (bình vỏ này đã rời kho nhưng chúng ta không theo dõi nó ở khách)
       for (const c of fullCylinders) {
-        await prisma.cylinder.update({
-          where: { id: c.id },
-          data: { status: 'at_store_empty', customerId: null, sentAt: new Date() },
-        })
+        await prisma.cylinder.delete({ where: { id: c.id } })
       }
 
-      // 2. Thu vỏ rỗng khách mang đến (những vỏ đã theo dõi được)
+      // 2. Thu vỏ rỗng khách mang đến (những vỏ đã theo dõi trong hệ thống)
       const trackedCustomerCylinders = await prisma.cylinder.findMany({
         where: { customerId, status: 'at_customer' },
         take: exchangeQty,
@@ -201,7 +196,7 @@ export async function POST(req: Request) {
         })
       }
 
-      // 3. Vỏ khách mang đến chưa được theo dõi (lần đầu mua, hoặc mua từ nguồn khác)
+      // 3. Vỏ rỗng khách mang đến chưa có trong hệ thống → tạo mới bản ghi
       const untrackedQty = exchangeQty - trackedCustomerCylinders.length
       if (untrackedQty > 0) {
         const gasItem = itemsWithSubtotal.find((i: any) => gasProductIds.includes(i.productId))
@@ -215,8 +210,7 @@ export async function POST(req: Request) {
           })
         }
       }
-
-      // Không tăng gasCylinderQty vì cylinder này là tài sản KHÁCH, không phải của mình
+      // Không tăng gasCylinderQty vì cylinder giao ra là tài sản KHÁCH
 
     } else if (cylinderTxType === 'borrow') {
       // ── CHẾ ĐỘ MƯỢN BÌNH ─────────────────────────────────────────
@@ -252,16 +246,14 @@ export async function POST(req: Request) {
 
     } else {
       // ── BÁN THƯỜNG (không chọn loại giao dịch vỏ) ────────────────
-      // Tương tự exchange: bình giao ra là tài sản khách
+      // Bán đứt bình gas (cả vỏ lẫn ruột) cho khách. Bình này trở thành tài sản khách.
+      // Cửa hàng mất luôn bình này → xóa khỏi hệ thống.
       const fullCylinders = await prisma.cylinder.findMany({
         where: { status: 'at_store_full' },
         take: totalGasQty,
       })
       for (const c of fullCylinders) {
-        await prisma.cylinder.update({
-          where: { id: c.id },
-          data: { status: 'at_store_empty', customerId: null, sentAt: new Date() },
-        })
+        await prisma.cylinder.delete({ where: { id: c.id } })
       }
     }
   }

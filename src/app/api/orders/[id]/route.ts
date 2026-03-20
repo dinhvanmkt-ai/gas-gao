@@ -136,52 +136,58 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
           await tx.customer.update({ where: { id: order.customerId }, data: custUpdate })
 
         } else if (order.cylinderTxType === 'exchange') {
-          // Undo exchange:
-          // 1. Thu hồi vỏ đầy đã giao cho khách (at_customer → at_store_full)
-          const sentCyls = await tx.cylinder.findMany({
-            where: { customerId: order.customerId, status: 'at_customer' },
-            take: cylQty,
-            orderBy: { sentAt: 'desc' },
-          })
-          for (const c of sentCyls) {
-            await tx.cylinder.update({
-              where: { id: c.id },
-              data: { status: 'at_store_full', customerId: null, sentAt: null },
+          // Undo exchange (bình đầy đã bị xóa, vỏ rỗng thu về đã thành at_store_empty)
+          // 1. Tái tạo lại vỏ đầy vào kho (vì lúc bán ra đã xóa)
+          const gasItem = order.items.find(i => gasProductIds.includes(i.productId))
+          const gasProduct = gasItem ? await tx.product.findUnique({ where: { id: gasItem.productId } }) : null
+          const cylinderType = gasProduct?.name ?? 'Gas'
+          for (let n = 0; n < cylQty; n++) {
+            const rand = Math.random().toString(36).slice(2, 6)
+            await tx.cylinder.create({
+              data: {
+                serial: `${order.orderNo}-UNDO-${n + 1}-${rand}`,
+                type: cylinderType, weight: 0, capacity: 0, status: 'at_store_full'
+              }
             })
           }
-          // 2. Xóa vỏ rỗng mà khách đã đổi vào (các vỏ này không còn tồn tại thực tế)
-          //    Tìm vỏ rỗng gần nhất (returnedAt mới nhất) rồi xóa
+          // 2. Trả lại vỏ rỗng vừa thu về (hoặc chờ xóa nếu là vỏ mới tạo tự động)
+          // Lấy cylQty vỏ rỗng vừa thu hồi gần nhất
           const emptyCyls = await tx.cylinder.findMany({
             where: { status: 'at_store_empty' },
             take: cylQty,
             orderBy: { returnedAt: 'desc' },
           })
           for (const c of emptyCyls) {
-            await tx.cylinder.delete({ where: { id: c.id } })
+            // Nếu vỏ này có returnedAt nghĩa là vỏ cũ của khách trả lại → trả lại at_customer
+            if (c.returnedAt) {
+              await tx.cylinder.update({
+                where: { id: c.id },
+                data: { status: 'at_customer', customerId: order.customerId, returnedAt: null }
+              })
+            } else {
+              // Vỏ này là vỏ mới tạo lúc exchange (untrackedQty) → xóa bỏ
+              await tx.cylinder.delete({ where: { id: c.id } })
+            }
           }
         }
 
       } else if (hasGas) {
-        // Bán thường (cylinderTxType = null): hoàn lại vỏ đầy từ khách về kho
+        // Bán thường (cylinderTxType = null): lúc giao ra bình đã bị xóa
+        // Tái tạo lại bình đầy vào kho
         const cylQty = order.items
           .filter(i => gasProductIds.includes(i.productId))
           .reduce((s, i) => s + Math.ceil(i.qty), 0)
 
-        const sentCyls = await tx.cylinder.findMany({
-          where: { customerId: order.customerId, status: 'at_customer' },
-          take: cylQty,
-          orderBy: { sentAt: 'desc' },
-        })
-        for (const c of sentCyls) {
-          await tx.cylinder.update({
-            where: { id: c.id },
-            data: { status: 'at_store_full', customerId: null, sentAt: null },
-          })
-        }
-        if (sentCyls.length > 0) {
-          await tx.customer.update({
-            where: { id: order.customerId },
-            data: { gasCylinderQty: { decrement: sentCyls.length } },
+        const gasItem = order.items.find(i => gasProductIds.includes(i.productId))
+        const gasProduct = gasItem ? await tx.product.findUnique({ where: { id: gasItem.productId } }) : null
+        const cylinderType = gasProduct?.name ?? 'Gas'
+        for (let n = 0; n < cylQty; n++) {
+          const rand = Math.random().toString(36).slice(2, 6)
+          await tx.cylinder.create({
+            data: {
+              serial: `${order.orderNo}-UNDO-N-${n + 1}-${rand}`,
+              type: cylinderType, weight: 0, capacity: 0, status: 'at_store_full'
+            }
           })
         }
       }
