@@ -181,10 +181,15 @@ export async function POST(req: Request) {
     const actualSent = fullCylinders.length
 
     if (cylinderTxType === 'exchange') {
-      // Đổi bình: thu vỏ rỗng từ khách
+      // Đổi bình: thu vỏ rỗng từ khách (CHỈ thu những bình ĐÃ có trước đơn này)
       const exchangeQty = Number(cylinderQty ?? totalGasQty)
+      const deliveredIds = fullCylinders.map(c => c.id)
       const customerCylinders = await prisma.cylinder.findMany({
-        where: { customerId, status: 'at_customer' },
+        where: {
+          customerId,
+          status: 'at_customer',
+          id: { notIn: deliveredIds }, // Không thu bình vừa mới giao trong đơn này
+        },
         take: exchangeQty,
         orderBy: { sentAt: 'asc' },
       })
@@ -194,7 +199,7 @@ export async function POST(req: Request) {
           data: { status: 'at_store_empty', customerId: null, returnedAt: new Date() },
         })
       }
-      // net: vỏ giao mới - vỏ thu về
+      // net: vỏ giao mới - vỏ thu về (lần đầu mua exchange không thu được → net = actualSent)
       const netChange = actualSent - customerCylinders.length
       if (netChange !== 0) {
         await prisma.customer.update({
