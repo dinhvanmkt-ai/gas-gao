@@ -68,7 +68,7 @@ export async function updateCustomerPrediction(customerId: string) {
     },
   })
 
-  const customerUpdate: any = {}
+  const customerUpdate: Record<string, Date | number | null> = {}
 
   // ── GAS ──────────────────────────────────────────────────────────
   const gasOrders = allOrders.filter(o => o.items.some(i => i.product.type === 'gas'))
