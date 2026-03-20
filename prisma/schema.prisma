@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("staff") // admin | staff
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id                   String    @id @default(cuid())
+  name                 String
+  phone                String    @unique
+  address              String?
+  notes                String?
+  // Gas tracking
+  gasAvgDays           Float?    // average days between gas purchases
+  gasLastBuyDate       DateTime?
+  gasLastQty           Float?    // kg
+  gasCylinderQty       Int       @default(0) // cylinders currently at customer site
+  // Rice tracking
+  riceAvgDays          Float?
+  riceLastBuyDate      DateTime?
+  riceLastQty          Float?    // kg
+  // Prediction
+  gasPredictedDate     DateTime?
+  ricePredictedDate    DateTime?
+  urgencyScore         Float     @default(0)
+  // Debt
+  debtBalance          Float     @default(0) // positive = customer owes us
+  // Cylinder tracking
+  cylinderDeposit      Float     @default(0) // tiền cọc vỏ đang giữ
+  cylinderDebt         Float     @default(0) // nợ vỏ (mượn chưa cọc)
+  // Metadata
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  orders               Order[]
+  cylinders            Cylinder[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // gas | rice | other
+  unit        String   // kg | bottle | bag
+  priceRetail Float
+  priceWhole  Float?
+  stock       Float    @default(0)
+  minStock    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems    OrderItem[]
+  purchaseItems PurchaseItem[]
+  priceHistory  PriceHistory[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNo       String      @unique
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  status        String      @default("pending") // pending(Chờ xử lý) | completed(Hoàn tất)
+  paymentMethod String      @default("cash")    // cash | transfer | debt
+  paidAmount    Float       @default(0)
+  totalAmount   Float       @default(0)
+  debtAmount    Float       @default(0)
+  // Cylinder transaction
+  cylinderTxType  String?                      // exchange | borrow | return
+  cylinderDeposit Float     @default(0)        // tiền cọc thu/hoàn trong đơn này
+  note          String?
+  deliveredAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  qty       Float
+  unitPrice Float
+  subtotal  Float
+}
+
+model Cylinder {
+  id           String    @id @default(cuid())
+  serial       String    @unique
+  type         String    @default("12kg") // 6kg | 12kg | 45kg
+  weight       Float     // kg (empty weight)
+  capacity     Float     // kg of gas
+  brand        String?
+  status       String    @default("at_store_full") // at_store_full | at_store_empty | at_customer | overdue
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  sentAt       DateTime?
+  returnedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  type      String     @default("gas") // gas | rice | other
+  notes     String?
+  createdAt DateTime   @default(now())
+
+  purchases Purchase[]
+  priceHistory PriceHistory[]
+}
+
+model Purchase {
+  id           String         @id @default(cuid())
+  purchaseNo   String         @unique
+  supplierId   String
+  supplier     Supplier       @relation(fields: [supplierId], references: [id])
+  status       String         @default("draft")  // draft | received
+  paymentStatus String        @default("paid")   // paid | owe
+  totalAmount  Float          @default(0)
+  paidAmount   Float          @default(0)
+  cylinderTxType String?                        // exchange | buy
+  cylinderQty    Int          @default(0)       // số vỏ giao dịch
+  note         String?
+  purchaseDate DateTime       @default(now())
+  receivedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  items        PurchaseItem[]
+  priceHistory PriceHistory[]
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  qty        Float
+  unitCost   Float
+  subtotal   Float
+}
+
+model PriceHistory {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id])
+  unitCost   Float
+  date       DateTime @default(now())
+}
+
+model StockAudit {
+  id          String   @id @default(cuid())
+  productId   String
+  type        String   // in | out | adjust
+  qty         Float
+  beforeQty   Float
+  afterQty    Float
+  reason      String?
+  refId       String?  // orderId or purchaseId
+  createdAt   DateTime @default(now())
+}
