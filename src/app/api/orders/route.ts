@@ -181,26 +181,55 @@ export async function POST(req: Request) {
     const actualSent = fullCylinders.length
 
     if (cylinderTxType === 'exchange') {
-      // Đổi bình: thu vỏ rỗng từ khách (CHỈ thu những bình ĐÃ có trước đơn này)
+      // Đổi bình: thu vỏ rỗng từ khách
       const exchangeQty = Number(cylinderQty ?? totalGasQty)
       const deliveredIds = fullCylinders.map(c => c.id)
-      const customerCylinders = await prisma.cylinder.findMany({
+
+      // Tìm vỏ đã được theo dõi của khách (không lấy bình vừa giao)
+      const trackedCustomerCylinders = await prisma.cylinder.findMany({
         where: {
           customerId,
           status: 'at_customer',
-          id: { notIn: deliveredIds }, // Không thu bình vừa mới giao trong đơn này
+          id: { notIn: deliveredIds },
         },
         take: exchangeQty,
         orderBy: { sentAt: 'asc' },
       })
-      for (const c of customerCylinders) {
+
+      // Đổi trạng thái bình đã theo dõi về at_store_empty
+      for (const c of trackedCustomerCylinders) {
         await prisma.cylinder.update({
           where: { id: c.id },
           data: { status: 'at_store_empty', customerId: null, returnedAt: new Date() },
         })
       }
-      // net: vỏ giao mới - vỏ thu về (lần đầu mua exchange không thu được → net = actualSent)
-      const netChange = actualSent - customerCylinders.length
+
+      // Nếu khách mang vỏ về nhiều hơn số được theo dõi (vd: lần đầu mua)
+      // → tạo mới bản ghi vỏ rỗng cho phần không được theo dõi
+      const untrackedQty = exchangeQty - trackedCustomerCylinders.length
+      if (untrackedQty > 0) {
+        // Xác định loại bình từ sản phẩm gas trong đơn
+        const gasItem = itemsWithSubtotal.find((i: any) => gasProductIds.includes(i.productId))
+        const gasProduct = gasItem ? await prisma.product.findUnique({ where: { id: gasItem.productId } }) : null
+        const cylinderType = gasProduct?.name ?? 'Gas'
+        for (let n = 0; n < untrackedQty; n++) {
+          const rand = Math.random().toString(36).slice(2, 6)
+          const serial = `${orderNo}-RET-${String(n + 1).padStart(3, '0')}-${rand}`
+          await prisma.cylinder.create({
+            data: {
+              serial,
+              type: cylinderType,
+              weight: 0,
+              capacity: 0,
+              status: 'at_store_empty',
+            },
+          })
+        }
+      }
+
+      // net change in customer cylinder count: giao mới - thu về đã được theo dõi - vỏ mới tạo
+      const totalReceived = trackedCustomerCylinders.length + untrackedQty // = exchangeQty tổng cộng
+      const netChange = actualSent - totalReceived
       if (netChange !== 0) {
         await prisma.customer.update({
           where: { id: customerId },
