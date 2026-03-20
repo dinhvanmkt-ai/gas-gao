@@ -8,8 +8,6 @@ export default defineConfig({
     seed: "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
   },
   datasource: {
-    // For migrations: use DIRECT_URL (port 5432, bypasses pooler)
-    // For runtime: PrismaClient reads DATABASE_URL via env directly
-    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"]!,
+    url: process.env["DATABASE_URL"] ?? process.env["DIRECT_URL"]!,
   },
 });
