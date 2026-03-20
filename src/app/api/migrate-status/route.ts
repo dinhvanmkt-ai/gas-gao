@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
@@ -7,3 +8,4 @@ export async function GET() {
   const r2 = await prisma.order.updateMany({ where: { status: 'cancelled' }, data: { status: 'completed' } })
   return NextResponse.json({ migratedDelivered: r1.count, migratedCancelled: r2.count })
 }
+
