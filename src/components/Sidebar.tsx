@@ -14,8 +14,11 @@ import {
   Flame,
   ChevronRight,
   UserCog,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSidebar } from '@/components/SidebarProvider'
+import { useEffect } from 'react'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,18 +31,44 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const { isOpen, setIsOpen } = useSidebar()
+
+  // Close sidebar on route change on mobile
+  useEffect(() => {
+    setIsOpen(false)
+  }, [pathname, setIsOpen])
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-slate-900/95 border-r border-slate-700/50 backdrop-blur-xl z-40 flex flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-700/50">
-        <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
-          <Flame className="w-5 h-5 text-white" />
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300" 
+          onClick={() => setIsOpen(false)} 
+        />
+      )}
+
+      <aside className={cn(
+        "fixed left-0 top-0 h-screen w-60 bg-slate-900/95 border-r border-slate-700/50 backdrop-blur-xl flex flex-col transition-transform duration-300 z-50",
+        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        {/* Logo */}
+      <div className="flex items-center justify-between px-5 py-5 border-b border-slate-700/50">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
+            <Flame className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-100 text-sm leading-tight">Gas & Gạo</p>
+            <p className="text-xs text-slate-500">Quản lý cửa hàng</p>
+          </div>
         </div>
-        <div>
-          <p className="font-bold text-slate-100 text-sm leading-tight">Gas & Gạo</p>
-          <p className="text-xs text-slate-500">Quản lý cửa hàng</p>
-        </div>
+        <button 
+          onClick={() => setIsOpen(false)}
+          className="md:hidden p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -90,6 +119,7 @@ export default function Sidebar() {
           <span>Đăng xuất</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
