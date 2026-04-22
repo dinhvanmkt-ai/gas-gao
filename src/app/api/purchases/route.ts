@@ -119,15 +119,15 @@ export async function POST(req: Request) {
       })
 
       // ─── Tự động tạo vỏ bình cho sản phẩm gas ────────────────────
-      // Khi nhập hàng gas (bình gas vật lý), tự động tạo Cylinder records
-      if (product.type === 'gas') {
+      // CHỈ tạo bình mới khi KHÔNG phải exchange (vì exchange sẽ đổi vỏ rỗng → đầy)
+      if (product.type === 'gas' && cylinderTxType !== 'exchange') {
         for (let n = 1; n <= item.qty; n++) {
           const rand = Math.random().toString(36).slice(2, 6)
           const serial = `${purchaseNo}-I${itemIdx + 1}-${String(n).padStart(3, '0')}-${rand}`
           await prisma.cylinder.create({
             data: {
               serial,
-              type: product.name, // dùng tên sản phẩm gas làm loại bình
+              type: product.name,
               weight: 0,
               capacity: 0,
               status: 'at_store_full',
@@ -142,27 +142,62 @@ export async function POST(req: Request) {
     if (cylinderTxType && cylQty > 0) {
 
       if (cylinderTxType === 'exchange') {
-        // Lấy vỏ rỗng trong kho → đổi thành đầy (NCC đã bơm gas lại)
+        // Đổi vỏ rỗng trong kho (BẤT KỲ loại nào) → bình đầy
+        // Lấy vỏ rỗng bất kỳ, không phân biệt loại
         const emptyCylinders = await prisma.cylinder.findMany({
           where: { status: 'at_store_empty' },
           take: cylQty,
           orderBy: { returnedAt: 'asc' }, // ưu tiên vỏ về lâu nhất
         })
+
+        // Xác định tên loại bình từ sản phẩm gas đầu tiên trong đơn
+        const gasItem = itemsWithTotal.find((i: any) => {
+          const p = items.find((x: any) => x.productId === i.productId)
+          return p
+        })
+        const firstGasProduct = await prisma.product.findFirst({
+          where: { id: { in: itemsWithTotal.map((i: any) => i.productId) }, type: 'gas' }
+        })
+        const cylinderType = firstGasProduct?.name ?? 'Gas'
+
+        // Đổi trạng thái các vỏ rỗng có sẵn → đầy
         for (const c of emptyCylinders) {
           await prisma.cylinder.update({
             where: { id: c.id },
-            data: { status: 'at_store_full', updatedAt: new Date() },
+            data: { status: 'at_store_full', type: cylinderType, updatedAt: new Date() },
           })
         }
 
+        // Nếu không đủ vỏ rỗng → tạo mới cho phần thiếu
+        const deficit = cylQty - emptyCylinders.length
+        if (deficit > 0) {
+          for (let n = 1; n <= deficit; n++) {
+            const rand = Math.random().toString(36).slice(2, 6)
+            const serial = `${purchaseNo}-EX-${String(n).padStart(3, '0')}-${rand}`
+            await prisma.cylinder.create({
+              data: {
+                serial,
+                type: cylinderType,
+                weight: 0,
+                capacity: 0,
+                status: 'at_store_full',
+              },
+            })
+          }
+        }
+
       } else if (cylinderTxType === 'buy') {
-        // Mua vỏ mới riêng (không kèm gas) → tạo bản ghi Cylinder với serial tự sinh
+        // Mua vỏ mới riêng (không kèm gas) → tạo bản ghi Cylinder
+        const firstGasProduct = await prisma.product.findFirst({
+          where: { id: { in: itemsWithTotal.map((i: any) => i.productId) }, type: 'gas' }
+        })
+        const cylinderType = firstGasProduct?.name ?? 'Vỏ trống'
         for (let n = 1; n <= cylQty; n++) {
           const serial = `${purchaseNo}-VOT-${String(n).padStart(3, '0')}`
           await prisma.cylinder.create({
             data: {
               serial,
-              type: 'Vỏ trống',
+              type: cylinderType,
               weight: 0,
               capacity: 0,
               status: 'at_store_full',
