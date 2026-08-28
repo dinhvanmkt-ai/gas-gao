@@ -18,6 +18,21 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   return NextResponse.json(purchase)
 }
 
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const body = await req.json()
+  const { paymentStatus, note } = body
+  const purchase = await prisma.purchase.update({
+    where: { id: params.id },
+    data: {
+      ...(paymentStatus !== undefined ? { paymentStatus } : {}),
+      ...(note !== undefined ? { note } : {}),
+    },
+  })
+  return NextResponse.json(purchase)
+}
+
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
