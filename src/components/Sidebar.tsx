@@ -16,6 +16,7 @@ import {
   UserCog,
   X,
   Wheat,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/components/SidebarProvider'
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/inventory', label: 'Kho Hàng', icon: Package },
   { href: '/purchases', label: 'Nhập Hàng (Gas)', icon: Truck },
   { href: '/rice-purchases', label: 'Nhập Gạo', icon: Wheat },
+  { href: '/rice-products', label: 'Danh Mục Gạo', icon: BookOpen },
   { href: '/reports', label: 'Báo Cáo', icon: BarChart3 },
 ]
 

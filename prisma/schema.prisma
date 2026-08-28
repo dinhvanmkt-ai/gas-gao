@@ -123,8 +123,9 @@ model Supplier {
   notes     String?
   createdAt DateTime   @default(now())
 
-  purchases Purchase[]
-  priceHistory PriceHistory[]
+  purchases     Purchase[]
+  ricePurchases RicePurchase[]
+  priceHistory  PriceHistory[]
 }
 
 model Purchase {
@@ -183,18 +184,46 @@ model StockAudit {
   createdAt   DateTime @default(now())
 }
 
-// ── Nhập gạo riêng (độc lập với bán hàng) ──────────────────────────────────
-// Gạo nhập theo kg/tạ nhưng bán theo bao nhỏ → đơn vị không khớp
-// Module này chỉ ghi nhận: bao nhiêu kg, giá bao nhiêu, từ ai
+// ── Quản lý gạo (nhập riêng, bán riêng) ────────────────────────────────────
+// Lý do tách: nhập theo kg bulk, bán theo bao nhỏ → đơn vị không khớp
+// RiceProduct  = danh mục loại gạo nhập (ST25, Jasmine...)
+// RicePurchase = phiếu nhập gạo (1 phiếu nhiều loại)
+// Product(rice)= sản phẩm bán ra (bao 5kg, 10kg...) trong Orders
+
+model RiceProduct {
+  id             String             @id @default(cuid())
+  name           String             // "Gạo ST25", "Gạo Jasmine"...
+  description    String?            // mô tả / nguồn gốc
+  lastPricePerKg Float?             // giá nhập gần nhất (tự cập nhật khi có phiếu mới)
+  active         Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  purchaseItems  RicePurchaseItem[]
+}
+
 model RicePurchase {
-  id           String   @id @default(cuid())
-  purchaseDate DateTime @default(now())
-  supplierName String?  // tên nhà cung cấp (free text, không cần bảng Supplier)
-  riceType     String   // loại gạo: ST25, Jasmine, Bắc Hương...
-  totalKg      Float    // tổng số kg nhập
-  pricePerKg   Float    // giá nhập / kg
-  totalCost    Float    // tổng tiền = totalKg * pricePerKg
-  note         String?  // ghi chú thêm
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String             @id @default(cuid())
+  purchaseNo    String             @unique       // RG00001, RG00002...
+  purchaseDate  DateTime           @default(now())
+  supplierId    String?
+  supplier      Supplier?          @relation(fields: [supplierId], references: [id])
+  paymentStatus String             @default("paid") // paid | owe
+  totalCost     Float              @default(0)       // Σ subtotal của items
+  note          String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  items         RicePurchaseItem[]
+}
+
+model RicePurchaseItem {
+  id             String       @id @default(cuid())
+  ricePurchaseId String
+  ricePurchase   RicePurchase @relation(fields: [ricePurchaseId], references: [id], onDelete: Cascade)
+  riceProductId  String
+  riceProduct    RiceProduct  @relation(fields: [riceProductId], references: [id])
+  totalKg        Float        // số kg nhập loại gạo này
+  pricePerKg     Float        // giá nhập/kg
+  subtotal       Float        // = totalKg × pricePerKg
 }

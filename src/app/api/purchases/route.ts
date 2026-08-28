@@ -4,13 +4,24 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { searchParams } = new URL(req.url)
+  const fromParam = searchParams.get('from')
+  const toParam = searchParams.get('to')
+  const where: Record<string, unknown> = {}
+  if (fromParam || toParam) {
+    where.purchaseDate = {
+      ...(fromParam ? { gte: new Date(fromParam) } : {}),
+      ...(toParam ? { lte: new Date(toParam + 'T23:59:59.999') } : {}),
+    }
+  }
+
   const purchases = await prisma.purchase.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 50,
+    where,
+    orderBy: { purchaseDate: 'desc' }, // Fix: sort đúng theo ngày nhập, không phải ngày tạo
     include: {
       supplier: { select: { name: true } },
       items: { include: { product: { select: { name: true, unit: true } } } },
