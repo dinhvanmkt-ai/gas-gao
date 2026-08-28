@@ -7,7 +7,6 @@ import { authOptions } from '@/lib/auth'
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const products = await prisma.product.findMany({ orderBy: { name: 'asc' } })
   return NextResponse.json(products)
 }
@@ -30,15 +29,5 @@ export async function POST(req: Request) {
       costPrice: costPrice != null ? Number(costPrice) : null,
     },
   })
-
-  // ── Tự động tạo CylinderType khi thêm sản phẩm gas ─────────────
-  if (type === 'gas') {
-    const existing = await prisma.cylinderType.findUnique({ where: { name: product.name } })
-    if (!existing) {
-      await prisma.cylinderType.create({ data: { name: product.name, fullQty: 0 } })
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────
-
   return NextResponse.json(product, { status: 201 })
 }

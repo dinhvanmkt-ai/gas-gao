@@ -104,18 +104,8 @@ export async function POST(req: Request) {
       : 0
   // ─────────────────────────────────────────────────────────────────
 
-  // Kiểm tra kho đủ vỏ đầy để giao (dùng CylinderType mới)
-  if (hasGas && totalGasQty > 0 && (cylinderTxType === 'exchange' || cylinderTxType === 'borrow' || !cylinderTxType)) {
-    const types = await prisma.cylinderType.findMany({ select: { fullQty: true } })
-    const availableFull = types.reduce((s, t) => s + t.fullQty, 0)
-    if (availableFull < totalGasQty) {
-      return NextResponse.json(
-        { error: `Kho không đủ vỏ bình đầy. Hiện có: ${availableFull}, cần: ${totalGasQty}` },
-        { status: 400 }
-      )
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────
+  // ── Validation kho bình đầy: đã được validate per-product ở loop trên (stock < qty) ──
+  // Không cần validate thêm vì Product.stock chính là số bình đầy
 
 
   const order = await prisma.order.create({
@@ -173,30 +163,13 @@ export async function POST(req: Request) {
     })
   }
 
-  // ─── CYLINDER LOGIC (mới: quản lý theo số lượng tổng) ───────────
+  // ─── CYLINDER LOGIC ─────────────────────────────────────────────
+  // Product.stock đã được trừ bởi stock update loop ở trên.
+  // Ở đây chỉ xử lý: thu vỏ rỗng về (exchange) + thông tin khách mượn (borrow)
   if (hasGas && totalGasQty > 0) {
 
     if (cylinderTxType === 'exchange') {
-      // ── ĐỔI BÌNH ─────────────────────────────────────────────────
-      // Giao bình đầy → trừ fullQty (lấy từ loại có nhiều nhất trước)
-      // Thu vỏ rỗng về → cộng emptyQty tổng
-
-      let need = totalGasQty
-      // Trừ fullQty từ các loại (lớn nhất trước)
-      const allTypes = await prisma.cylinderType.findMany({ orderBy: { fullQty: 'desc' } })
-      for (const t of allTypes) {
-        if (need <= 0) break
-        const take = Math.min(need, t.fullQty)
-        if (take > 0) {
-          await prisma.cylinderType.update({
-            where: { id: t.id },
-            data: { fullQty: { decrement: take } },
-          })
-          need -= take
-        }
-      }
-
-      // Thu vỏ rỗng về
+      // Thu vỏ rỗng về kho (không phân loại)
       const exchangeQty = Number(cylinderQty ?? totalGasQty)
       const emptyRow = await prisma.cylinderEmpty.findFirst()
       if (emptyRow) {
@@ -209,23 +182,7 @@ export async function POST(req: Request) {
       }
 
     } else if (cylinderTxType === 'borrow') {
-      // ── MƯỢN BÌNH ────────────────────────────────────────────────
-      // Giao bình đầy cho khách mượn → trừ fullQty
-      let need = totalGasQty
-      const allTypes = await prisma.cylinderType.findMany({ orderBy: { fullQty: 'desc' } })
-      for (const t of allTypes) {
-        if (need <= 0) break
-        const take = Math.min(need, t.fullQty)
-        if (take > 0) {
-          await prisma.cylinderType.update({
-            where: { id: t.id },
-            data: { fullQty: { decrement: take } },
-          })
-          need -= take
-        }
-      }
-
-      // Cập nhật thông tin khách: số bình mượn + cọc/nợ
+      // Ghi nhận khách mượn bình + cọc/nợ
       await prisma.customer.update({
         where: { id: customerId },
         data: { gasCylinderQty: { increment: totalGasQty } },
@@ -241,26 +198,11 @@ export async function POST(req: Request) {
           data: { cylinderDebt: { increment: totalGasQty } },
         })
       }
-
-    } else {
-      // ── BÁN THƯỜNG (bán đứt, không thu vỏ) ──────────────────────
-      // Trừ fullQty nhưng không thu vỏ về
-      let need = totalGasQty
-      const allTypes = await prisma.cylinderType.findMany({ orderBy: { fullQty: 'desc' } })
-      for (const t of allTypes) {
-        if (need <= 0) break
-        const take = Math.min(need, t.fullQty)
-        if (take > 0) {
-          await prisma.cylinderType.update({
-            where: { id: t.id },
-            data: { fullQty: { decrement: take } },
-          })
-          need -= take
-        }
-      }
     }
+    // exchange/bán thường: Product.stock đã xử lý đủ
   }
   // ─────────────────────────────────────────────────────────────────
+
 
 
   // Cập nhật thống kê + dự đoán lần mua tiếp theo sau khi tạo đơn

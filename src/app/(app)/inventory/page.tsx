@@ -32,14 +32,7 @@ export default function InventoryPage() {
   const [editError, setEditError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteError, setDeleteError] = useState('')
-  // Cylinder type management
-  const [showAddType, setShowAddType] = useState(false)
-  const [newTypeName, setNewTypeName] = useState('')
-  const [newTypeQty, setNewTypeQty] = useState('0')
-  const [addTypeError, setAddTypeError] = useState('')
-  const [addTypeSaving, setAddTypeSaving] = useState(false)
-  const [editTypeId, setEditTypeId] = useState<string|null>(null)
-  const [editTypeQty, setEditTypeQty] = useState<string>('')
+  // Cylinder type management — state không còn cần thiết (bình đầy = Product.stock, read-only)
 
   async function loadAll() {
     setLoading(true)
@@ -138,19 +131,8 @@ export default function InventoryPage() {
     setEditSaving(false)
   }
 
-  // ---- New cylinder helper functions ----
-  async function updateTypeQty(id: string, newQty: number) {
-    const res = await fetch(`/api/cylinder-types/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullQty: newQty }),
-    })
-    if (res.ok) {
-      const updated = await res.json()
-      setCylTypes(prev => prev.map(t => t.id === id ? { ...t, fullQty: updated.fullQty } : t))
-    }
-  }
 
+  // Chỉ cần hàm điều chỉnh bình rỗng — bình đầy đọc từ Product.stock
   async function updateEmptyQty(delta: number) {
     const res = await fetch('/api/cylinder-empty', {
       method: 'PUT',
@@ -161,30 +143,6 @@ export default function InventoryPage() {
       const updated = await res.json()
       setCylEmptyQty(updated.qty)
     }
-  }
-
-  async function deleteType(id: string) {
-    const res = await fetch(`/api/cylinder-types/${id}`, { method: 'DELETE' })
-    if (res.ok) setCylTypes(prev => prev.filter(t => t.id !== id))
-    else { const d = await res.json(); alert(d.error) }
-  }
-
-  async function addType() {
-    if (!newTypeName.trim()) { setAddTypeError('Vui lòng nhập tên loại bình'); return }
-    setAddTypeSaving(true); setAddTypeError('')
-    const res = await fetch('/api/cylinder-types', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newTypeName.trim(), fullQty: Number(newTypeQty) || 0 }),
-    })
-    if (res.ok) {
-      const t = await res.json()
-      setCylTypes(prev => [...prev, t])
-      setNewTypeName(''); setNewTypeQty('0'); setShowAddType(false)
-    } else {
-      const d = await res.json(); setAddTypeError(d.error ?? 'Lỗi')
-    }
-    setAddTypeSaving(false)
   }
 
   async function submitAudit() {
@@ -351,85 +309,33 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                  {/* Bình đầy theo loại */}
+                  {/* Bình đầy theo loại — đọc từ Product.stock */}
                   <div className="card p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-semibold text-slate-200">🟢 Bình đầy — theo loại</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">Nhập từ NCC theo loại bình</p>
-                      </div>
-                      <button onClick={() => setShowAddType(true)} className="btn-secondary text-xs flex items-center gap-1">
-                        <Plus className="w-3.5 h-3.5" /> Thêm loại
-                      </button>
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-slate-200">🟢 Bình đầy — theo loại</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Đồng bộ tự động từ tồn kho sản phẩm gas •{' '}
+                        <button onClick={() => setTab(0)} className="text-orange-400 hover:underline">
+                          Điều chỉnh ở tab Tồn Kho
+                        </button>
+                      </p>
                     </div>
 
-                    {showAddType && (
-                      <div className="mb-4 p-3 bg-slate-800/60 rounded-xl border border-slate-700 space-y-2">
-                        <p className="text-sm font-medium text-slate-200">Thêm loại bình mới</p>
-                        {addTypeError && <p className="text-xs text-red-400">{addTypeError}</p>}
-                        <div className="flex gap-2">
-                          <input type="text" value={newTypeName} onChange={e => setNewTypeName(e.target.value)}
-                            placeholder="Tên loại (VD: Gas 12kg)" className="input flex-1 text-sm py-1.5" />
-                          <input type="number" min={0} value={newTypeQty} onChange={e => setNewTypeQty(e.target.value)}
-                            placeholder="SL" className="input w-20 text-sm py-1.5 text-center" />
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={addType} disabled={addTypeSaving}
-                            className="btn-primary text-xs py-1.5 flex items-center gap-1">
-                            {addTypeSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} Thêm
-                          </button>
-                          <button onClick={() => { setShowAddType(false); setAddTypeError('') }} className="btn-ghost text-xs">Hủy</button>
-                        </div>
-                      </div>
-                    )}
-
                     {cylTypes.length === 0 ? (
-                      <p className="text-slate-500 text-center py-8 text-sm">Chưa có loại bình nào</p>
+                      <p className="text-slate-500 text-center py-8 text-sm">Chưa có sản phẩm gas nào</p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {cylTypes.map(t => (
                           <div key={t.id} className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl">
                             <div className="flex-1">
-                              <p className="font-medium text-slate-200">{t.name}</p>
-                              {t.note && <p className="text-xs text-slate-500">{t.note}</p>}
+                              <p className="font-medium text-slate-200 text-sm">{t.name}</p>
                             </div>
-                            {editTypeId === t.id ? (
-                              <div className="flex items-center gap-2">
-                                <input type="number" min={0} value={editTypeQty}
-                                  onChange={e => setEditTypeQty(e.target.value)}
-                                  className="input w-20 py-1 text-center text-sm" />
-                                <button onClick={async () => {
-                                  await updateTypeQty(t.id, Number(editTypeQty))
-                                  setEditTypeId(null)
-                                }} className="btn-primary text-xs py-1.5">Lưu</button>
-                                <button onClick={() => setEditTypeId(null)} className="btn-ghost text-xs">Hủy</button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-3">
-                                <span className="text-2xl font-bold text-emerald-400">{t.fullQty}</span>
-                                <span className="text-xs text-slate-500">bình</span>
-                                <div className="flex gap-1">
-                                  <button onClick={() => updateTypeQty(t.id, Math.max(0, t.fullQty - 1))}
-                                    className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors">
-                                    <Minus className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => updateTypeQty(t.id, t.fullQty + 1)}
-                                    className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors">
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => { setEditTypeId(t.id); setEditTypeQty(String(t.fullQty)) }}
-                                    className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors">
-                                    <Edit3 className="w-4 h-4" />
-                                  </button>
-                                  {t.fullQty === 0 && (
-                                    <button onClick={() => deleteType(t.id)}
-                                      className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors">
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <span className={`text-2xl font-bold ${t.fullQty > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>
+                                {t.fullQty}
+                              </span>
+                              <span className="text-xs text-slate-500">bình</span>
+                            </div>
                           </div>
                         ))}
                       </div>

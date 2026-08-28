@@ -121,29 +121,15 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
           .reduce((s, i) => s + Math.ceil(i.qty), 0)
 
         if (order.cylinderTxType === 'borrow') {
-          // Rollback: hoàn trả bình đầy vào kho
-          const firstType = await tx.cylinderType.findFirst({ orderBy: { name: 'asc' } })
-          if (firstType && cylQty > 0) {
-            await tx.cylinderType.update({
-              where: { id: firstType.id },
-              data: { fullQty: { increment: cylQty } },
-            })
-          }
+          // Product.stock đã được restore ở STEP 1
           // Rollback customer cylinder count and deposit/debt
           const custUpdate: any = { gasCylinderQty: { decrement: cylQty } }
           if (order.cylinderDeposit > 0) custUpdate.cylinderDeposit = { decrement: order.cylinderDeposit }
           await tx.customer.update({ where: { id: order.customerId }, data: custUpdate })
 
         } else if (order.cylinderTxType === 'exchange') {
-          // Rollback: hoàn trả bình đầy vào kho
-          const firstType = await tx.cylinderType.findFirst({ orderBy: { name: 'asc' } })
-          if (firstType && cylQty > 0) {
-            await tx.cylinderType.update({
-              where: { id: firstType.id },
-              data: { fullQty: { increment: cylQty } },
-            })
-          }
-          // Rollback: trừ bình rỗng đã thu
+          // Product.stock đã được restore ở STEP 1
+          // Rollback: trừ bình rỗng đã thu (hoàn lại cho khách)
           const emptyRow = await tx.cylinderEmpty.findFirst()
           if (emptyRow) {
             await tx.cylinderEmpty.update({
@@ -152,20 +138,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
             })
           }
         }
-
-      } else if (hasGas) {
-        // Bán thường (cylinderTxType = null): hoàn trả bình đầy vào kho
-        const cylQty = order.items
-          .filter(i => gasProductIds.includes(i.productId))
-          .reduce((s, i) => s + Math.ceil(i.qty), 0)
-
-        const firstType = await tx.cylinderType.findFirst({ orderBy: { name: 'asc' } })
-        if (firstType && cylQty > 0) {
-          await tx.cylinderType.update({
-            where: { id: firstType.id },
-            data: { fullQty: { increment: cylQty } },
-          })
-        }
+        // bán thường: Product.stock đã xử lý đủ ở STEP 1
       }
 
       // STEP 3: Rollback debt

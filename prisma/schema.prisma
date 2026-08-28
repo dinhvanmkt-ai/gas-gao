@@ -48,17 +48,8 @@ model Customer {
   orders               Order[]
 }
 
-// ── Vỏ bình gas — quản lý theo số lượng (không theo serial) ─────────────────
-// Bình đầy: theo loại (vì nhập từ NCC theo loại, bán ra theo loại)
-model CylinderType {
-  id        String   @id @default(cuid())
-  name      String   @unique  // "Gas 12kg", "Gas 45kg"...
-  fullQty   Int      @default(0)  // số bình đầy tại kho
-  note      String?
-  updatedAt DateTime @updatedAt
-}
-
 // Bình rỗng: chỉ tổng số (không phân loại — vỏ thu về từ khách không biết loại)
+// Bình đầy theo loại: dùng Product(type=gas).stock — không cần bảng riêng
 model CylinderEmpty {
   id  String @id @default(cuid())
   qty Int    @default(0)   // tổng bình rỗng tại kho

@@ -4,15 +4,26 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-// GET: danh sách loại bình + tổng bình rỗng
+// GET: bình đầy = lấy từ Product(type=gas).stock — single source of truth
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [types, emptyRow] = await Promise.all([
-    prisma.cylinderType.findMany({ orderBy: { name: 'asc' } }),
+  const [gasProducts, emptyRow] = await Promise.all([
+    prisma.product.findMany({
+      where: { type: 'gas' },
+      select: { id: true, name: true, stock: true },
+      orderBy: { name: 'asc' },
+    }),
     prisma.cylinderEmpty.findFirst(),
   ])
+
+  // Map gas products thành format "types" để UI không cần thay đổi nhiều
+  const types = gasProducts.map(p => ({
+    id: p.id,
+    name: p.name,
+    fullQty: Math.max(0, Math.floor(p.stock)), // stock = số bình đầy
+  }))
 
   return NextResponse.json({
     types,
@@ -21,19 +32,10 @@ export async function GET() {
   })
 }
 
-// POST: thêm loại bình mới
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { name, fullQty, note } = await req.json()
-  if (!name?.trim()) return NextResponse.json({ error: 'Tên loại bình là bắt buộc' }, { status: 400 })
-
-  const existing = await prisma.cylinderType.findUnique({ where: { name: name.trim() } })
-  if (existing) return NextResponse.json({ error: 'Loại bình này đã tồn tại' }, { status: 400 })
-
-  const type = await prisma.cylinderType.create({
-    data: { name: name.trim(), fullQty: Number(fullQty) || 0, note },
-  })
-  return NextResponse.json(type, { status: 201 })
+// POST: không còn dùng (thêm loại bình = thêm sản phẩm gas)
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Dùng /api/products để thêm sản phẩm gas mới' },
+    { status: 410 }
+  )
 }
