@@ -41,8 +41,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (body.paidAmount !== undefined || body.paymentMethod !== undefined) {
     const existing = await prisma.order.findUnique({ where: { id: params.id } })
     if (existing) {
-      const newPaid = body.paidAmount !== undefined ? body.paidAmount : existing.paidAmount
       const newMethod = body.paymentMethod !== undefined ? body.paymentMethod : existing.paymentMethod
+      // Fix: cash/transfer → coi như đã trả đủ, không tính nợ
+      const newPaid = newMethod !== 'debt'
+        ? existing.totalAmount
+        : (body.paidAmount !== undefined ? body.paidAmount : existing.paidAmount)
       const newDebt = newMethod === 'debt' ? Math.max(0, existing.totalAmount - newPaid) : 0
       updateData.debtAmount = newDebt
       updateData.paidAmount = newPaid

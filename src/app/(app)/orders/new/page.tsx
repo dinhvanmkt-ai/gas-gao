@@ -408,15 +408,30 @@ export default function NewOrderPage() {
                   <option value="debt">Công nợ</option>
                 </select>
               </div>
+
+              {/* cash / transfer: đã trả đủ, chỉ hiển thị */}
+              {paymentMethod !== 'debt' && (
+                <div>
+                  <label className="label">Đã trả</label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-emerald-400 font-semibold text-sm">{formatCurrency(totalAmount)}</span>
+                    <span className="badge-green text-xs">Đủ</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Tự động ghi nhận đã thu đủ</p>
+                </div>
+              )}
+
+              {/* debt: nhập số tiền trả trước (có thể = 0) */}
               {paymentMethod === 'debt' && (
                 <div>
                   <label className="label">Đã trả trước</label>
-                  <input type="number" min={0} value={paidAmount}
+                  <input type="number" min={0} max={totalAmount} value={paidAmount}
                     onChange={e => setPaidAmount(e.target.value === '' ? '' : Number(e.target.value))}
                     className="input" placeholder="0" />
                 </div>
               )}
-              {previewDebt > 0 && (
+
+              {previewDebt > 0 && paymentMethod === 'debt' && (
                 <div>
                   <label className="label">Còn nợ (dự kiến)</label>
                   <p className="text-lg font-bold text-red-400 mt-2">{formatCurrency(previewDebt)}</p>

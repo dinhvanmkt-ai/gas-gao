@@ -81,13 +81,11 @@ export async function POST(req: Request) {
     return { ...item, subtotal }
   })
 
-  const paid = paidAmount ?? 0
-  const debtAmount = Math.max(0, totalAmount - paid)
-
-  const depositInOrder =
-    cylinderTxType === 'borrow' && cylinderBorrowMode === 'deposit'
-      ? (cylinderDepositAmount ?? 0)
-      : 0
+  // ── FIX Bug #1: cash / transfer → coi như đã trả đủ, không tạo nợ ──────────
+  // Trước đây paidAmount không được nhập khi chọn cash/transfer → paid = 0 → toàn bộ bị ghi nợ sai
+  const paid = paymentMethod !== 'debt' ? totalAmount : Math.max(0, paidAmount ?? 0)
+  const debtAmount = paymentMethod !== 'debt' ? 0 : Math.max(0, totalAmount - paid)
+  // ─────────────────────────────────────────────────────────────────────────────
 
   // ─── TÍNH TỔNG SỐ BÌNH GAS TRONG ĐƠN ────────────────────────────
   const gasProductIds = (await prisma.product.findMany({ where: { type: 'gas' } })).map(p => p.id)
@@ -97,6 +95,14 @@ export async function POST(req: Request) {
         .filter((i: any) => gasProductIds.includes(i.productId))
         .reduce((s: number, i: any) => s + i.qty, 0)
     : 0
+
+  // ── FIX Bug #2: lưu TỔNG tiền cọc (per-vỏ × số bình gas) thay vì per-vỏ ──
+  // Trước đây chỉ lưu cylinderDepositAmount (per vỏ) → mượn 3 vỏ × 200k chỉ ghi 200k, mất 400k
+  const depositInOrder =
+    cylinderTxType === 'borrow' && cylinderBorrowMode === 'deposit'
+      ? (cylinderDepositAmount ?? 0) * Math.max(1, totalGasQty)
+      : 0
+  // ─────────────────────────────────────────────────────────────────
 
   // Kiểm tra kho đủ vỏ đầy để giao
   if (hasGas && totalGasQty > 0) {
