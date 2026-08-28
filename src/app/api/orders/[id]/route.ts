@@ -121,76 +121,49 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
           .reduce((s, i) => s + Math.ceil(i.qty), 0)
 
         if (order.cylinderTxType === 'borrow') {
-          // Return cylinders from customer back to store (full)
-          const custCyls = await tx.cylinder.findMany({
-            where: { customerId: order.customerId, status: 'at_customer' },
-            take: cylQty,
-            orderBy: { sentAt: 'desc' },
-          })
-          for (const c of custCyls) {
-            await tx.cylinder.update({
-              where: { id: c.id },
-              data: { status: 'at_store_full', customerId: null, sentAt: null, returnedAt: null },
+          // Rollback: hoàn trả bình đầy vào kho
+          const firstType = await tx.cylinderType.findFirst({ orderBy: { name: 'asc' } })
+          if (firstType && cylQty > 0) {
+            await tx.cylinderType.update({
+              where: { id: firstType.id },
+              data: { fullQty: { increment: cylQty } },
             })
           }
-          // Decrement customer cylinder count and deposit/debt
-          const custUpdate: any = { gasCylinderQty: { decrement: custCyls.length } }
+          // Rollback customer cylinder count and deposit/debt
+          const custUpdate: any = { gasCylinderQty: { decrement: cylQty } }
           if (order.cylinderDeposit > 0) custUpdate.cylinderDeposit = { decrement: order.cylinderDeposit }
           await tx.customer.update({ where: { id: order.customerId }, data: custUpdate })
 
         } else if (order.cylinderTxType === 'exchange') {
-          // Undo exchange (bình đầy đã bị xóa, vỏ rỗng thu về đã thành at_store_empty)
-          // 1. Tái tạo lại vỏ đầy vào kho (vì lúc bán ra đã xóa)
-          const gasItem = order.items.find(i => gasProductIds.includes(i.productId))
-          const gasProduct = gasItem ? await tx.product.findUnique({ where: { id: gasItem.productId } }) : null
-          const cylinderType = gasProduct?.name ?? 'Gas'
-          for (let n = 0; n < cylQty; n++) {
-            const rand = Math.random().toString(36).slice(2, 6)
-            await tx.cylinder.create({
-              data: {
-                serial: `${order.orderNo}-UNDO-${n + 1}-${rand}`,
-                type: cylinderType, weight: 0, capacity: 0, status: 'at_store_full'
-              }
+          // Rollback: hoàn trả bình đầy vào kho
+          const firstType = await tx.cylinderType.findFirst({ orderBy: { name: 'asc' } })
+          if (firstType && cylQty > 0) {
+            await tx.cylinderType.update({
+              where: { id: firstType.id },
+              data: { fullQty: { increment: cylQty } },
             })
           }
-          // 2. Trả lại vỏ rỗng vừa thu về (hoặc chờ xóa nếu là vỏ mới tạo tự động)
-          // Lấy cylQty vỏ rỗng vừa thu hồi gần nhất
-          const emptyCyls = await tx.cylinder.findMany({
-            where: { status: 'at_store_empty' },
-            take: cylQty,
-            orderBy: { returnedAt: 'desc' },
-          })
-          for (const c of emptyCyls) {
-            // Nếu vỏ này có returnedAt nghĩa là vỏ cũ của khách trả lại → trả lại at_customer
-            if (c.returnedAt) {
-              await tx.cylinder.update({
-                where: { id: c.id },
-                data: { status: 'at_customer', customerId: order.customerId, returnedAt: null }
-              })
-            } else {
-              // Vỏ này là vỏ mới tạo lúc exchange (untrackedQty) → xóa bỏ
-              await tx.cylinder.delete({ where: { id: c.id } })
-            }
+          // Rollback: trừ bình rỗng đã thu
+          const emptyRow = await tx.cylinderEmpty.findFirst()
+          if (emptyRow) {
+            await tx.cylinderEmpty.update({
+              where: { id: emptyRow.id },
+              data: { qty: Math.max(0, emptyRow.qty - cylQty) },
+            })
           }
         }
 
       } else if (hasGas) {
-        // Bán thường (cylinderTxType = null): lúc giao ra bình đã bị xóa
-        // Tái tạo lại bình đầy vào kho
+        // Bán thường (cylinderTxType = null): hoàn trả bình đầy vào kho
         const cylQty = order.items
           .filter(i => gasProductIds.includes(i.productId))
           .reduce((s, i) => s + Math.ceil(i.qty), 0)
 
-        const gasItem = order.items.find(i => gasProductIds.includes(i.productId))
-        const gasProduct = gasItem ? await tx.product.findUnique({ where: { id: gasItem.productId } }) : null
-        const cylinderType = gasProduct?.name ?? 'Gas'
-        for (let n = 0; n < cylQty; n++) {
-          const rand = Math.random().toString(36).slice(2, 6)
-          await tx.cylinder.create({
-            data: {
-              serial: `${order.orderNo}-UNDO-N-${n + 1}-${rand}`,
-              type: cylinderType, weight: 0, capacity: 0, status: 'at_store_full'
-            }
+        const firstType = await tx.cylinderType.findFirst({ orderBy: { name: 'asc' } })
+        if (firstType && cylQty > 0) {
+          await tx.cylinderType.update({
+            where: { id: firstType.id },
+            data: { fullQty: { increment: cylQty } },
           })
         }
       }

@@ -27,7 +27,7 @@ model Customer {
   gasAvgDays           Float?    // average days between gas purchases
   gasLastBuyDate       DateTime?
   gasLastQty           Float?    // kg
-  gasCylinderQty       Int       @default(0) // cylinders currently at customer site
+  gasCylinderQty       Int       @default(0) // số bình đang mượn (nếu có)
   // Rice tracking
   riceAvgDays          Float?
   riceLastBuyDate      DateTime?
@@ -38,15 +38,30 @@ model Customer {
   urgencyScore         Float     @default(0)
   // Debt
   debtBalance          Float     @default(0) // positive = customer owes us
-  // Cylinder tracking
+  // Cylinder deposit
   cylinderDeposit      Float     @default(0) // tiền cọc vỏ đang giữ
-  cylinderDebt         Float     @default(0) // nợ vỏ (mượn chưa cọc)
+  cylinderDebt         Float     @default(0) // nợ vỏ
   // Metadata
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
   orders               Order[]
-  cylinders            Cylinder[]
+}
+
+// ── Vỏ bình gas — quản lý theo số lượng (không theo serial) ─────────────────
+// Bình đầy: theo loại (vì nhập từ NCC theo loại, bán ra theo loại)
+model CylinderType {
+  id        String   @id @default(cuid())
+  name      String   @unique  // "Gas 12kg", "Gas 45kg"...
+  fullQty   Int      @default(0)  // số bình đầy tại kho
+  note      String?
+  updatedAt DateTime @updatedAt
+}
+
+// Bình rỗng: chỉ tổng số (không phân loại — vỏ thu về từ khách không biết loại)
+model CylinderEmpty {
+  id  String @id @default(cuid())
+  qty Int    @default(0)   // tổng bình rỗng tại kho
 }
 
 model Product {
@@ -97,22 +112,6 @@ model OrderItem {
   qty       Float
   unitPrice Float
   subtotal  Float
-}
-
-model Cylinder {
-  id           String    @id @default(cuid())
-  serial       String    @unique
-  type         String    @default("12kg") // 6kg | 12kg | 45kg
-  weight       Float     // kg (empty weight)
-  capacity     Float     // kg of gas
-  brand        String?
-  status       String    @default("at_store_full") // at_store_full | at_store_empty | at_customer | overdue
-  customerId   String?
-  customer     Customer? @relation(fields: [customerId], references: [id])
-  sentAt       DateTime?
-  returnedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
 }
 
 model Supplier {

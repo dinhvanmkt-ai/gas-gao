@@ -63,45 +63,51 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
       // 3. Xóa price history liên quan
       await prisma.priceHistory.deleteMany({ where: { purchaseId: purchase.id } })
 
-      // 4. Xóa vỏ bình tự động tạo từ sản phẩm gas (serial: purchaseNo-I...)
-      const autoGasCylinders = await prisma.cylinder.findMany({
-        where: {
-          serial: { startsWith: `${purchase.purchaseNo}-I` },
-          status: 'at_store_full', // chỉ xóa nếu chưa xuất đơn
-        },
-      })
-      for (const c of autoGasCylinders) {
-        await prisma.cylinder.delete({ where: { id: c.id } })
+      // 4. Hoàn tác tồn kho bình cho sản phẩm gas (non-exchange)
+      for (const item of purchase.items) {
+        const product = await prisma.product.findUnique({ where: { id: item.productId } })
+        if (product?.type === 'gas' && purchase.cylinderTxType !== 'exchange') {
+          const matchingType = await prisma.cylinderType.findFirst({
+            where: { name: { contains: product.name } },
+            orderBy: { name: 'asc' },
+          })
+          const targetType = matchingType ?? await prisma.cylinderType.findFirst({ orderBy: { name: 'asc' } })
+          if (targetType) {
+            await prisma.cylinderType.update({
+              where: { id: targetType.id },
+              data: { fullQty: { decrement: item.qty } },
+            })
+          }
+        }
       }
 
-      // 5. Hoàn tác vỏ bình từ cylinderTxType (exchange/buy vỏ riêng)
+      // 5. Hoàn tác vỏ bình từ cylinderTxType (exchange/buy vỏ riêng với NCC)
       const cylQty = purchase.cylinderQty ?? 0
       const cylinderTxType = purchase.cylinderTxType
 
       if (cylQty > 0 && cylinderTxType) {
+        const firstType = await prisma.cylinderType.findFirst({ orderBy: { name: 'asc' } })
         if (cylinderTxType === 'buy') {
-          // Xóa các bình vỏ trống đã tạo riêng (serial: purchaseNo-VOT-...)
-          const toDelete = await prisma.cylinder.findMany({
-            where: {
-              serial: { startsWith: `${purchase.purchaseNo}-VOT-` },
-              status: 'at_store_full',
-            },
-            take: cylQty,
-          })
-          for (const c of toDelete) {
-            await prisma.cylinder.delete({ where: { id: c.id } })
+          // Hoàn tác: giảm fullQty đã tăng khi mua
+          if (firstType) {
+            await prisma.cylinderType.update({
+              where: { id: firstType.id },
+              data: { fullQty: { decrement: cylQty } },
+            })
           }
         } else if (cylinderTxType === 'exchange') {
-          // Hoàn tác: chuyển bình đầy → rỗng lại
-          const toRevert = await prisma.cylinder.findMany({
-            where: { status: 'at_store_full' },
-            take: cylQty,
-            orderBy: { updatedAt: 'desc' },
-          })
-          for (const c of toRevert) {
-            await prisma.cylinder.update({
-              where: { id: c.id },
-              data: { status: 'at_store_empty' },
+          // Hoàn tác: giảm fullQty và tăng lại emptyQty
+          if (firstType) {
+            await prisma.cylinderType.update({
+              where: { id: firstType.id },
+              data: { fullQty: { decrement: cylQty } },
+            })
+          }
+          const emptyRow = await prisma.cylinderEmpty.findFirst()
+          if (emptyRow) {
+            await prisma.cylinderEmpty.update({
+              where: { id: emptyRow.id },
+              data: { qty: { increment: cylQty } },
             })
           }
         }

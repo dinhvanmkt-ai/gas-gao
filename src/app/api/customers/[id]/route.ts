@@ -15,7 +15,6 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         take: 10,
         include: { items: { include: { product: true } } },
       },
-      cylinders: true,
     },
   })
 
@@ -45,15 +44,6 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     if (orderCount > 0) {
       return NextResponse.json(
         { error: `Không thể xóa: khách hàng có ${orderCount} đơn hàng. Hãy xóa đơn hàng trước.` },
-        { status: 409 }
-      )
-    }
-
-    // Check for cylinders
-    const cylinderCount = await prisma.cylinder.count({ where: { customerId: params.id } })
-    if (cylinderCount > 0) {
-      return NextResponse.json(
-        { error: `Không thể xóa: khách hàng đang giữ ${cylinderCount} vỏ bình gas.` },
         { status: 409 }
       )
     }

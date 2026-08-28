@@ -26,22 +26,30 @@ export async function POST(req: Request) {
 
   const returnQty = Number(qty)
 
-  // Move cylinders from at_customer → at_store_empty
-  const customerCylinders = await prisma.cylinder.findMany({
-    where: { customerId, status: 'at_customer' },
-    take: returnQty,
-    orderBy: { sentAt: 'asc' },
-  })
+  // Update aggregate inventory: increment emptyQty and decrement customer cylinder count
+  const [firstType, emptyRow] = await Promise.all([
+    prisma.cylinderType.findFirst({ orderBy: { name: 'asc' } }),
+    prisma.cylinderEmpty.findFirst(),
+  ])
 
-  for (const c of customerCylinders) {
-    await prisma.cylinder.update({
-      where: { id: c.id },
-      data: { status: 'at_store_empty', customerId: null, returnedAt: new Date() },
+  // Hoàn trả vỏ về kho: tăng số bình đầy (giả sử bình được nạp lại khi trả)
+  if (firstType && returnQty > 0) {
+    await prisma.cylinderType.update({
+      where: { id: firstType.id },
+      data: { fullQty: { increment: returnQty } },
     })
   }
 
-  // Số vỏ thực tế tìm được trong DB (có thể ít hơn returnQty)
-  const actualReturned = customerCylinders.length
+  // Tăng số vỏ rỗng trong kho
+  if (emptyRow) {
+    await prisma.cylinderEmpty.update({
+      where: { id: emptyRow.id },
+      data: { qty: { increment: returnQty } },
+    })
+  }
+
+  // Số vỏ thực tế trả (bằng qty yêu cầu vì dùng aggregate)
+  const actualReturned = returnQty
 
   // Update customer cylinder count dựa trên số vỏ thực tế
   const newCylinderQty = Math.max(0, customer.gasCylinderQty - actualReturned)

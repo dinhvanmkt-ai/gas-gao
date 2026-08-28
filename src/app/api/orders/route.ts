@@ -104,9 +104,10 @@ export async function POST(req: Request) {
       : 0
   // ─────────────────────────────────────────────────────────────────
 
-  // Kiểm tra kho đủ vỏ đầy để giao
-  if (hasGas && totalGasQty > 0) {
-    const availableFull = await prisma.cylinder.count({ where: { status: 'at_store_full' } })
+  // Kiểm tra kho đủ vỏ đầy để giao (dùng CylinderType mới)
+  if (hasGas && totalGasQty > 0 && (cylinderTxType === 'exchange' || cylinderTxType === 'borrow' || !cylinderTxType)) {
+    const types = await prisma.cylinderType.findMany({ select: { fullQty: true } })
+    const availableFull = types.reduce((s, t) => s + t.fullQty, 0)
     if (availableFull < totalGasQty) {
       return NextResponse.json(
         { error: `Kho không đủ vỏ bình đầy. Hiện có: ${availableFull}, cần: ${totalGasQty}` },
@@ -115,6 +116,7 @@ export async function POST(req: Request) {
     }
   }
   // ──────────────────────────────────────────────────────────────────
+
 
   const order = await prisma.order.create({
     data: {
@@ -171,72 +173,62 @@ export async function POST(req: Request) {
     })
   }
 
-  // ─── CYLINDER LOGIC ───────────────────────────────────────────────
+  // ─── CYLINDER LOGIC (mới: quản lý theo số lượng tổng) ───────────
   if (hasGas && totalGasQty > 0) {
-    const exchangeQty = Number(cylinderQty ?? totalGasQty)
 
     if (cylinderTxType === 'exchange') {
-      // ── CHẾ ĐỘ ĐỔI BÌNH ──────────────────────────────────────────
-      // Khách mang vỏ rỗng CỦA KHÁCH đến → cửa hàng lấy đó đổi gas mới.
-      // Bình đầy giao cho khách: TÀI SẢN CỦA KHÁCH → xóa khỏi theo dõi của cửa hàng
+      // ── ĐỔI BÌNH ─────────────────────────────────────────────────
+      // Giao bình đầy → trừ fullQty (lấy từ loại có nhiều nhất trước)
+      // Thu vỏ rỗng về → cộng emptyQty tổng
 
-      // 1. Lấy bình đầy từ kho và XÓA khỏi hệ thống (nó trở thành tài sản khách)
-      const fullCylinders = await prisma.cylinder.findMany({
-        where: { status: 'at_store_full' },
-        take: totalGasQty,
-      })
-      for (const c of fullCylinders) {
-        await prisma.cylinder.delete({ where: { id: c.id } })
-      }
-
-      // 2. Thu vỏ rỗng khách mang đến (những vỏ đã theo dõi trong hệ thống)
-      const trackedCustomerCylinders = await prisma.cylinder.findMany({
-        where: { customerId, status: 'at_customer' },
-        take: exchangeQty,
-        orderBy: { sentAt: 'asc' },
-      })
-      for (const c of trackedCustomerCylinders) {
-        await prisma.cylinder.update({
-          where: { id: c.id },
-          data: { status: 'at_store_empty', customerId: null, returnedAt: new Date() },
-        })
-      }
-
-      // 3. Vỏ rỗng khách mang đến chưa có trong hệ thống → tạo mới bản ghi
-      const untrackedQty = exchangeQty - trackedCustomerCylinders.length
-      if (untrackedQty > 0) {
-        const gasItem = itemsWithSubtotal.find((i: any) => gasProductIds.includes(i.productId))
-        const gasProduct = gasItem ? await prisma.product.findUnique({ where: { id: gasItem.productId } }) : null
-        const cylinderType = gasProduct?.name ?? 'Gas'
-        for (let n = 0; n < untrackedQty; n++) {
-          const rand = Math.random().toString(36).slice(2, 6)
-          const serial = `${orderNo}-RET-${String(n + 1).padStart(3, '0')}-${rand}`
-          await prisma.cylinder.create({
-            data: { serial, type: cylinderType, weight: 0, capacity: 0, status: 'at_store_empty' },
+      let need = totalGasQty
+      // Trừ fullQty từ các loại (lớn nhất trước)
+      const allTypes = await prisma.cylinderType.findMany({ orderBy: { fullQty: 'desc' } })
+      for (const t of allTypes) {
+        if (need <= 0) break
+        const take = Math.min(need, t.fullQty)
+        if (take > 0) {
+          await prisma.cylinderType.update({
+            where: { id: t.id },
+            data: { fullQty: { decrement: take } },
           })
+          need -= take
         }
       }
-      // Không tăng gasCylinderQty vì cylinder giao ra là tài sản KHÁCH
+
+      // Thu vỏ rỗng về
+      const exchangeQty = Number(cylinderQty ?? totalGasQty)
+      const emptyRow = await prisma.cylinderEmpty.findFirst()
+      if (emptyRow) {
+        await prisma.cylinderEmpty.update({
+          where: { id: emptyRow.id },
+          data: { qty: { increment: exchangeQty } },
+        })
+      } else {
+        await prisma.cylinderEmpty.create({ data: { qty: exchangeQty } })
+      }
 
     } else if (cylinderTxType === 'borrow') {
-      // ── CHẾ ĐỘ MƯỢN BÌNH ─────────────────────────────────────────
-      // Bình là TÀI SẢN CỬA HÀNG, giao cho khách mượn → theo dõi ở khách
-
-      const fullCylinders = await prisma.cylinder.findMany({
-        where: { status: 'at_store_full' },
-        take: totalGasQty,
-      })
-      for (const c of fullCylinders) {
-        await prisma.cylinder.update({
-          where: { id: c.id },
-          data: { status: 'at_customer', customerId, sentAt: new Date() },
-        })
+      // ── MƯỢN BÌNH ────────────────────────────────────────────────
+      // Giao bình đầy cho khách mượn → trừ fullQty
+      let need = totalGasQty
+      const allTypes = await prisma.cylinderType.findMany({ orderBy: { fullQty: 'desc' } })
+      for (const t of allTypes) {
+        if (need <= 0) break
+        const take = Math.min(need, t.fullQty)
+        if (take > 0) {
+          await prisma.cylinderType.update({
+            where: { id: t.id },
+            data: { fullQty: { decrement: take } },
+          })
+          need -= take
+        }
       }
-      const actualSent = fullCylinders.length
 
+      // Cập nhật thông tin khách: số bình mượn + cọc/nợ
       await prisma.customer.update({
         where: { id: customerId },
-        data: { gasCylinderQty: { increment: actualSent } },
+        data: { gasCylinderQty: { increment: totalGasQty } },
       })
       if (cylinderBorrowMode === 'deposit' && depositInOrder > 0) {
         await prisma.customer.update({
@@ -246,24 +238,30 @@ export async function POST(req: Request) {
       } else if (cylinderBorrowMode === 'debt') {
         await prisma.customer.update({
           where: { id: customerId },
-          data: { cylinderDebt: { increment: actualSent } },
+          data: { cylinderDebt: { increment: totalGasQty } },
         })
       }
 
     } else {
-      // ── BÁN THƯỜNG (không chọn loại giao dịch vỏ) ────────────────
-      // Bán đứt bình gas (cả vỏ lẫn ruột) cho khách. Bình này trở thành tài sản khách.
-      // Cửa hàng mất luôn bình này → xóa khỏi hệ thống.
-      const fullCylinders = await prisma.cylinder.findMany({
-        where: { status: 'at_store_full' },
-        take: totalGasQty,
-      })
-      for (const c of fullCylinders) {
-        await prisma.cylinder.delete({ where: { id: c.id } })
+      // ── BÁN THƯỜNG (bán đứt, không thu vỏ) ──────────────────────
+      // Trừ fullQty nhưng không thu vỏ về
+      let need = totalGasQty
+      const allTypes = await prisma.cylinderType.findMany({ orderBy: { fullQty: 'desc' } })
+      for (const t of allTypes) {
+        if (need <= 0) break
+        const take = Math.min(need, t.fullQty)
+        if (take > 0) {
+          await prisma.cylinderType.update({
+            where: { id: t.id },
+            data: { fullQty: { decrement: take } },
+          })
+          need -= take
+        }
       }
     }
   }
   // ─────────────────────────────────────────────────────────────────
+
 
   // Cập nhật thống kê + dự đoán lần mua tiếp theo sau khi tạo đơn
   await updateCustomerPrediction(customerId)
