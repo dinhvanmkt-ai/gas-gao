@@ -21,7 +21,7 @@ export async function GET() {
     totalCustomers,
     urgentCustomers,
     totalDebt,
-    lowStock,
+    allProducts,
     recentOrders,
     alertCustomers,
   ] = await Promise.all([
@@ -29,10 +29,10 @@ export async function GET() {
     prisma.order.count({
       where: { createdAt: { gte: today, lt: tomorrow }, status: { not: 'cancelled' } },
     }),
-    // Month revenue
+    // Month revenue — dùng paidAmount (tiền đã thu thực tế, không tính nợ)
     prisma.order.aggregate({
       where: { createdAt: { gte: monthStart }, status: { in: ['completed', 'delivered'] } },
-      _sum: { totalAmount: true },
+      _sum: { paidAmount: true },
     }),
     // Total customers
     prisma.customer.count(),
@@ -40,10 +40,8 @@ export async function GET() {
     prisma.customer.count({ where: { urgencyScore: { gte: 75 } } }),
     // Total debt
     prisma.customer.aggregate({ _sum: { debtBalance: true } }),
-    // Low stock products
-    prisma.product.findMany({
-      where: { stock: { lte: prisma.product.fields.minStock } },
-    }).catch(() => []),
+    // All products — tính lowStock ở application layer (tránh lỗi Prisma cross-field compare)
+    prisma.product.findMany({ select: { stock: true, minStock: true } }),
     // Recent orders
     prisma.order.findMany({
       take: 5,
@@ -67,15 +65,52 @@ export async function GET() {
     }),
   ])
 
+  // ── Fix: tính lowStockCount ở application layer
+  const lowStockCount = allProducts.filter(p => p.stock <= p.minStock).length
+
+  // ── Doanh thu 7 ngày qua theo thực tế (phân bổ paidAmount theo tỷ lệ gas/gạo)
+  const revenue7days: { day: string; gas: number; rice: number }[] = []
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = new Date(today)
+    dayStart.setDate(today.getDate() - i)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setHours(23, 59, 59, 999)
+    const dayLabel = `${dayStart.getDate()}/${dayStart.getMonth() + 1}`
+
+    const dayOrders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: dayStart, lte: dayEnd },
+        status: { in: ['completed', 'delivered'] },
+      },
+      include: { items: { include: { product: { select: { type: true } } } } },
+    })
+
+    let gasRevenue = 0
+    let riceRevenue = 0
+    for (const order of dayOrders) {
+      const gasSubtotal = order.items
+        .filter(it => it.product.type === 'gas')
+        .reduce((s, it) => s + it.subtotal, 0)
+      const riceSubtotal = order.items
+        .filter(it => it.product.type === 'rice')
+        .reduce((s, it) => s + it.subtotal, 0)
+      const ratio = order.totalAmount > 0 ? (order.paidAmount ?? 0) / order.totalAmount : 0
+      gasRevenue += Math.round(gasSubtotal * ratio)
+      riceRevenue += Math.round(riceSubtotal * ratio)
+    }
+    revenue7days.push({ day: dayLabel, gas: gasRevenue, rice: riceRevenue })
+  }
+
   return NextResponse.json({
     todayOrders,
-    monthRevenue: monthRevenue._sum.totalAmount ?? 0,
+    monthRevenue: monthRevenue._sum.paidAmount ?? 0,
     totalCustomers,
     urgentCustomers,
     totalDebt: totalDebt._sum.debtBalance ?? 0,
-    lowStockCount: 0, // simplified
+    lowStockCount,
     recentOrders,
     alertCustomers,
+    revenue7days,
   })
 }
 

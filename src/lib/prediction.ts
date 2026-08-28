@@ -105,8 +105,8 @@ export async function updateCustomerPrediction(customerId: string) {
   }
 
   // ── URGENCY SCORE ─────────────────────────────────────────────────
-  const gasPred = customerUpdate.gasPredictedDate ?? null
-  const ricePred = customerUpdate.ricePredictedDate ?? null
+  const gasPred = (customerUpdate.gasPredictedDate instanceof Date ? customerUpdate.gasPredictedDate : null) as Date | null
+  const ricePred = (customerUpdate.ricePredictedDate instanceof Date ? customerUpdate.ricePredictedDate : null) as Date | null
   const gasScore = calcUrgencyScore(gasPred)
   const riceScore = calcUrgencyScore(ricePred)
   customerUpdate.urgencyScore = Math.max(gasScore, riceScore)

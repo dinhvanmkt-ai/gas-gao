@@ -75,14 +75,23 @@ export default function ReportsPage() {
     Promise.all([
       fetch('/api/customers').then(r => r.json()),
       fetch('/api/products').then(r => r.json()),
-      fetch('/api/orders').then(r => r.json()),
-    ]).then(([c, p, o]) => {
+    ]).then(([c, p]) => {
       setCustomers(Array.isArray(c) ? c : [])
       setProducts(Array.isArray(p) ? p : [])
-      setOrders(Array.isArray(o) ? o : [])
       setLoading(false)
     })
   }, [])
+
+  // Fetch orders khi dateRange thay đổi — dùng API riêng không giới hạn 50 đơn
+  useEffect(() => {
+    const params = new URLSearchParams({
+      from: dateRange.from.toISOString().split('T')[0],
+      to: dateRange.to.toISOString().split('T')[0],
+    })
+    fetch(`/api/reports/orders?${params}`)
+      .then(r => r.json())
+      .then(o => setOrders(Array.isArray(o) ? o : []))
+  }, [dateRange])
 
   // Load profit when tab=1 or date range changes
   useEffect(() => {

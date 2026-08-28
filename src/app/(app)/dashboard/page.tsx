@@ -12,16 +12,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar
 } from 'recharts'
 
-// Fake time series for chart demo
-const revenueData = [
-  { day: '10/3', gas: 2400000, rice: 800000 },
-  { day: '11/3', gas: 1800000, rice: 1200000 },
-  { day: '12/3', gas: 3200000, rice: 600000 },
-  { day: '13/3', gas: 2900000, rice: 1400000 },
-  { day: '14/3', gas: 3800000, rice: 900000 },
-  { day: '15/3', gas: 4200000, rice: 1100000 },
-  { day: '16/3', gas: 3600000, rice: 1300000 },
-]
+
 
 interface DashboardData {
   todayOrders: number
@@ -32,6 +23,7 @@ interface DashboardData {
   lowStockCount: number
   recentOrders: any[]
   alertCustomers: any[]
+  revenue7days: { day: string; gas: number; rice: number }[]
 }
 
 function KpiCard({ label, value, icon: Icon, colorClass, sub }: {
@@ -129,7 +121,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={revenueData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+              <AreaChart data={data?.revenue7days ?? []} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                 <defs>
                   <linearGradient id="gasGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />

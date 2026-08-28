@@ -182,3 +182,19 @@ model StockAudit {
   refId       String?  // orderId or purchaseId
   createdAt   DateTime @default(now())
 }
+
+// ── Nhập gạo riêng (độc lập với bán hàng) ──────────────────────────────────
+// Gạo nhập theo kg/tạ nhưng bán theo bao nhỏ → đơn vị không khớp
+// Module này chỉ ghi nhận: bao nhiêu kg, giá bao nhiêu, từ ai
+model RicePurchase {
+  id           String   @id @default(cuid())
+  purchaseDate DateTime @default(now())
+  supplierName String?  // tên nhà cung cấp (free text, không cần bảng Supplier)
+  riceType     String   // loại gạo: ST25, Jasmine, Bắc Hương...
+  totalKg      Float    // tổng số kg nhập
+  pricePerKg   Float    // giá nhập / kg
+  totalCost    Float    // tổng tiền = totalKg * pricePerKg
+  note         String?  // ghi chú thêm
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

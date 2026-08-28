@@ -15,6 +15,7 @@ import {
   ChevronRight,
   UserCog,
   X,
+  Wheat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/components/SidebarProvider'
@@ -25,7 +26,8 @@ const navItems = [
   { href: '/customers', label: 'Khách Hàng', icon: Users },
   { href: '/orders', label: 'Đơn Hàng', icon: ShoppingCart },
   { href: '/inventory', label: 'Kho Hàng', icon: Package },
-  { href: '/purchases', label: 'Nhập Hàng', icon: Truck },
+  { href: '/purchases', label: 'Nhập Hàng (Gas)', icon: Truck },
+  { href: '/rice-purchases', label: 'Nhập Gạo', icon: Wheat },
   { href: '/reports', label: 'Báo Cáo', icon: BarChart3 },
 ]
 
