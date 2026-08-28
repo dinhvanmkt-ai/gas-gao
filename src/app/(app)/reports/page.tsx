@@ -311,11 +311,13 @@ export default function ReportsPage() {
                                   <span className="flex items-center gap-1.5">
                                     {formatCurrency(p.unitCost)}
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                      p.costMethod === 'avg_period'
+                                      p.costMethod === 'manual'
+                                        ? 'bg-blue-500/20 text-blue-400'
+                                        : p.costMethod === 'avg_period'
                                         ? 'bg-emerald-500/20 text-emerald-400'
                                         : 'bg-yellow-500/20 text-yellow-400'
                                     }`}>
-                                      {p.costMethod === 'avg_period' ? 'bq kỳ' : 'bq TL'}
+                                      {p.costMethod === 'manual' ? 'nhập tay' : p.costMethod === 'avg_period' ? 'bq kỳ' : 'bq TL'}
                                     </span>
                                   </span>
                                 ) : <span className="text-slate-500">Chưa có giá</span>}

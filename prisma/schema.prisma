@@ -56,6 +56,7 @@ model Product {
   unit        String   // kg | bottle | bag
   priceRetail Float
   priceWhole  Float?
+  costPrice   Float?   // giá vốn / đơn vị (nhập tay, dùng cho báo cáo lợi nhuận)
   stock       Float    @default(0)
   minStock    Float    @default(0)
   createdAt   DateTime @default(now())

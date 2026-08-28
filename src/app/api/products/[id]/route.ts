@@ -16,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { name, type, unit, priceRetail, priceWhole, minStock } = body
+  const { name, type, unit, priceRetail, priceWhole, minStock, costPrice } = body
 
   const product = await prisma.product.update({
     where: { id: params.id },
@@ -27,6 +27,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       priceRetail: Number(priceRetail) || 0,
       priceWhole: priceWhole != null ? Number(priceWhole) : null,
       minStock: Number(minStock) || 0,
+      // costPrice: null = chưa thiết lập, 0 = thiết lập bằng 0
+      costPrice: costPrice != null ? Number(costPrice) : null,
     },
   })
   return NextResponse.json(product)
