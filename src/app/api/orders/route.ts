@@ -108,6 +108,39 @@ export async function POST(req: Request) {
   // Không cần validate thêm vì Product.stock chính là số bình đầy
 
 
+  // ── Tính unitCost snapshot cho từng sản phẩm (giá vốn tại thời điểm bán) ──
+  // Không bao giờ thay đổi sau khi đơn được tạo, dù giá nhập/bán thay đổi sau này
+  async function getUnitCostSnapshot(productId: string, saleDate: Date): Promise<number | null> {
+    // 1. costPrice nhập tay
+    const prod = await prisma.product.findUnique({ where: { id: productId }, select: { costPrice: true } })
+    if (prod?.costPrice != null && prod.costPrice > 0) return prod.costPrice
+
+    // 2. Bình quân gia quyền các lô nhập trước ngày bán
+    const purchaseItems = await prisma.purchaseItem.findMany({
+      where: {
+        productId,
+        purchase: { status: 'received', purchaseDate: { lte: saleDate } },
+      },
+      select: { qty: true, unitCost: true },
+    })
+    if (purchaseItems.length > 0) {
+      const totalQty = purchaseItems.reduce((s, i) => s + i.qty, 0)
+      const totalVal = purchaseItems.reduce((s, i) => s + i.qty * i.unitCost, 0)
+      return totalQty > 0 ? totalVal / totalQty : null
+    }
+
+    return null  // chưa có giá vốn
+  }
+
+  // Tính snapshot cho tất cả items
+  const itemsWithCost = await Promise.all(
+    itemsWithSubtotal.map(async (i: any) => ({
+      ...i,
+      unitCost: await getUnitCostSnapshot(i.productId, orderCreatedAt),
+    }))
+  )
+  // ────────────────────────────────────────────────────────────────────────────
+
   const order = await prisma.order.create({
     data: {
       orderNo,
@@ -122,11 +155,12 @@ export async function POST(req: Request) {
       cylinderTxType: cylinderTxType ?? null,
       cylinderDeposit: depositInOrder,
       items: {
-        create: itemsWithSubtotal.map((i: any) => ({
+        create: itemsWithCost.map((i: any) => ({
           productId: i.productId,
           qty: i.qty,
           unitPrice: i.unitPrice,
           subtotal: i.subtotal,
+          unitCost: i.unitCost,   // ← snapshot giá vốn
         })),
       },
     },

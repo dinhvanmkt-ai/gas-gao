@@ -103,6 +103,7 @@ model OrderItem {
   qty       Float
   unitPrice Float
   subtotal  Float
+  unitCost  Float?  // giá vốn snapshot tại thời điểm bán — không thay đổi khi giá sau này thay đổi
 }
 
 model Supplier {

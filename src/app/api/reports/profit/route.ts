@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     include: {
       items: {
         include: {
-          product: { select: { id: true, name: true, type: true, unit: true, costPrice: true } },
+          product: { select: { id: true, name: true, type: true, unit: true } },
         },
       },
     },
@@ -30,96 +30,99 @@ export async function GET(req: Request) {
   // Aggregate by product
   const productMap: Record<string, {
     productId: string; name: string; type: string; unit: string
-    qty: number; revenue: number; grossRevenue: number
-    costPriceManual: number | null  // từ Product.costPrice
+    qty: number
+    grossRevenue: number   // tổng doanh thu gộp
+    revenue: number        // doanh thu đã thu (tính theo tỷ lệ paid)
+    totalCost: number      // tổng giá vốn từ snapshot
+    missingCost: number    // số qty không có giá vốn snapshot
+    costMethod: 'snapshot' | 'none'
   }> = {}
 
   for (const order of orders) {
     const payRatio = order.totalAmount > 0 ? (order.paidAmount / order.totalAmount) : 1
+
     for (const item of order.items) {
-      if (!productMap[item.productId]) {
-        productMap[item.productId] = {
-          productId: item.productId,
+      const pid = item.productId
+      if (!productMap[pid]) {
+        productMap[pid] = {
+          productId: pid,
           name: item.product.name,
           type: item.product.type,
           unit: item.product.unit,
           qty: 0,
-          revenue: 0,
           grossRevenue: 0,
-          costPriceManual: item.product.costPrice,
+          revenue: 0,
+          totalCost: 0,
+          missingCost: 0,
+          costMethod: 'none',
         }
       }
-      productMap[item.productId].qty += item.qty
-      productMap[item.productId].grossRevenue += item.subtotal
-      productMap[item.productId].revenue += item.subtotal * payRatio
+
+      const p = productMap[pid]
+      p.qty += item.qty
+      p.grossRevenue += item.subtotal
+      p.revenue += item.subtotal * payRatio
+
+      if (item.unitCost != null && item.unitCost > 0) {
+        // ✅ Dùng snapshot giá vốn lúc bán — chính xác, không bị ảnh hưởng khi giá thay đổi
+        p.totalCost += item.unitCost * item.qty
+        p.costMethod = 'snapshot'
+      } else {
+        // ⚠️ Đơn cũ chưa có snapshot → đánh dấu thiếu
+        p.missingCost += item.qty
+      }
     }
   }
 
-  // Giá vốn theo sản phẩm
-  const productIds = Object.keys(productMap)
-  const costs: Record<string, number> = {}
-  const costMethods: Record<string, string> = {}
-
-  const purchaseDateFilter: any = { purchase: { status: 'received' } }
-  if (from || to) {
-    purchaseDateFilter.purchase.purchaseDate = {}
-    if (from) purchaseDateFilter.purchase.purchaseDate.gte = new Date(from)
-    if (to) purchaseDateFilter.purchase.purchaseDate.lte = new Date(to + 'T23:59:59.999')
-  }
-
-  for (const pid of productIds) {
-    const p = productMap[pid]
-
-    // Ưu tiên 1: costPrice nhập tay (cho mọi loại sản phẩm)
-    if (p.costPriceManual != null && p.costPriceManual > 0) {
-      costs[pid] = p.costPriceManual
-      costMethods[pid] = 'manual'
-      continue
+  // Các đơn cũ chưa có unitCost snapshot → fallback tính bình quân từ PurchaseItem
+  // (chỉ áp dụng cho đơn cũ, đơn mới luôn có snapshot)
+  for (const p of Object.values(productMap)) {
+    if (p.missingCost > 0 && p.costMethod === 'none') {
+      // Fallback: bình quân gia quyền toàn lịch sử
+      const allTime = await prisma.purchaseItem.findMany({
+        where: { productId: p.productId, purchase: { status: 'received' } },
+        select: { qty: true, unitCost: true },
+      })
+      if (allTime.length > 0) {
+        const totalQty = allTime.reduce((s, i) => s + i.qty, 0)
+        const totalVal = allTime.reduce((s, i) => s + i.qty * i.unitCost, 0)
+        const avgCost = totalQty > 0 ? totalVal / totalQty : 0
+        if (avgCost > 0) {
+          p.totalCost += avgCost * p.missingCost
+          p.costMethod = 'snapshot'  // mark as calculated (not pure snapshot)
+        }
+      } else {
+        // Fallback cuối: Product.costPrice
+        const prod = await prisma.product.findUnique({
+          where: { id: p.productId },
+          select: { costPrice: true },
+        })
+        if (prod?.costPrice != null && prod.costPrice > 0) {
+          p.totalCost += prod.costPrice * p.missingCost
+          p.costMethod = 'snapshot'
+        }
+      }
     }
-
-    // Ưu tiên 2: bình quân gia quyền từ PurchaseItem trong kỳ (chủ yếu cho gas)
-    const inPeriod = await prisma.purchaseItem.findMany({
-      where: { productId: pid, ...purchaseDateFilter },
-      select: { qty: true, unitCost: true },
-    })
-    if (inPeriod.length > 0) {
-      const totalQty = inPeriod.reduce((s, i) => s + i.qty, 0)
-      const totalCostVal = inPeriod.reduce((s, i) => s + i.qty * i.unitCost, 0)
-      costs[pid] = totalQty > 0 ? totalCostVal / totalQty : 0
-      costMethods[pid] = 'avg_period'
-      continue
-    }
-
-    // Ưu tiên 3: bình quân toàn bộ lịch sử nhập
-    const allTime = await prisma.purchaseItem.findMany({
-      where: { productId: pid, purchase: { status: 'received' } },
-      select: { qty: true, unitCost: true },
-    })
-    if (allTime.length > 0) {
-      const totalQty = allTime.reduce((s, i) => s + i.qty, 0)
-      const totalCostVal = allTime.reduce((s, i) => s + i.qty * i.unitCost, 0)
-      costs[pid] = totalQty > 0 ? totalCostVal / totalQty : 0
-      costMethods[pid] = 'avg_all'
-      continue
-    }
-
-    // Ưu tiên 4: chưa có giá vốn
-    costs[pid] = 0
-    costMethods[pid] = 'none'
   }
 
   const profitData = Object.values(productMap).map(p => {
-    const unitCost = costs[p.productId] ?? 0
-    const totalCost = unitCost * p.qty
-    const profit = p.revenue - totalCost
+    const profit = p.revenue - p.totalCost
+    const unitCostAvg = p.qty > 0 ? p.totalCost / p.qty : 0
     const margin = p.grossRevenue > 0 ? (profit / p.grossRevenue) * 100 : 0
     return {
-      ...p,
-      unitCost,
-      totalCost,
+      productId: p.productId,
+      name: p.name,
+      type: p.type,
+      unit: p.unit,
+      qty: p.qty,
+      grossRevenue: p.grossRevenue,
+      revenue: p.revenue,
+      unitCost: unitCostAvg,
+      totalCost: p.totalCost,
       profit,
       margin: Math.round(margin * 10) / 10,
-      costMethod: costMethods[p.productId] ?? 'none',
+      costMethod: p.costMethod,
+      hasMissingCost: p.missingCost > 0 && p.costMethod === 'none',
     }
   }).sort((a, b) => b.profit - a.profit)
 
@@ -133,4 +136,3 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ items: profitData, totals })
 }
-
