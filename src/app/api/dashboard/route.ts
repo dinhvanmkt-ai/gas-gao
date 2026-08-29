@@ -29,10 +29,10 @@ export async function GET() {
     prisma.order.count({
       where: { createdAt: { gte: today, lt: tomorrow }, status: { not: 'cancelled' } },
     }),
-    // Month revenue — dùng paidAmount (tiền đã thu thực tế, không tính nợ)
+    // Month revenue — tổng doanh số và thực thu
     prisma.order.aggregate({
       where: { createdAt: { gte: monthStart }, status: { in: ['completed', 'delivered'] } },
-      _sum: { paidAmount: true },
+      _sum: { totalAmount: true, paidAmount: true },
     }),
     // Total customers
     prisma.customer.count(),
@@ -68,7 +68,7 @@ export async function GET() {
   // ── Fix: tính lowStockCount ở application layer
   const lowStockCount = allProducts.filter(p => p.stock <= p.minStock).length
 
-  // ── Doanh thu 7 ngày qua theo thực tế (phân bổ paidAmount theo tỷ lệ gas/gạo)
+  // ── Doanh thu bán hàng 7 ngày qua theo Gas + Gạo
   const revenue7days: { day: string; gas: number; rice: number }[] = []
   for (let i = 6; i >= 0; i--) {
     const dayStart = new Date(today)
@@ -94,16 +94,16 @@ export async function GET() {
       const riceSubtotal = order.items
         .filter(it => it.product.type === 'rice')
         .reduce((s, it) => s + it.subtotal, 0)
-      const ratio = order.totalAmount > 0 ? (order.paidAmount ?? 0) / order.totalAmount : 0
-      gasRevenue += Math.round(gasSubtotal * ratio)
-      riceRevenue += Math.round(riceSubtotal * ratio)
+      gasRevenue += gasSubtotal
+      riceRevenue += riceSubtotal
     }
     revenue7days.push({ day: dayLabel, gas: gasRevenue, rice: riceRevenue })
   }
 
   return NextResponse.json({
     todayOrders,
-    monthRevenue: monthRevenue._sum.paidAmount ?? 0,
+    monthRevenue: monthRevenue._sum.totalAmount ?? 0,
+    monthPaid: monthRevenue._sum.paidAmount ?? 0,
     totalCustomers,
     urgentCustomers,
     totalDebt: totalDebt._sum.debtBalance ?? 0,

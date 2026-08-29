@@ -17,6 +17,7 @@ import {
 interface DashboardData {
   todayOrders: number
   monthRevenue: number
+  monthPaid?: number
   totalCustomers: number
   urgentCustomers: number
   totalDebt: number
@@ -76,11 +77,13 @@ export default function DashboardPage() {
       sub: 'đơn hàng',
     },
     {
-      label: 'Doanh thu tháng',
+      label: 'Doanh số tháng',
       value: formatCurrency(data?.monthRevenue ?? 0),
       icon: TrendingUp,
       colorClass: 'kpi-green',
-      sub: 'tháng này',
+      sub: data?.monthPaid !== undefined && data.monthPaid < (data?.monthRevenue ?? 0)
+        ? `Thực thu: ${formatCurrency(data.monthPaid)}`
+        : 'tháng này',
     },
     {
       label: 'Khách hàng',

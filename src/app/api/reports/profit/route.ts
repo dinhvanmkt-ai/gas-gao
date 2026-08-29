@@ -106,7 +106,7 @@ export async function GET(req: Request) {
   }
 
   const profitData = Object.values(productMap).map(p => {
-    const profit = p.revenue - p.totalCost
+    const profit = p.grossRevenue - p.totalCost
     const unitCostAvg = p.qty > 0 ? p.totalCost / p.qty : 0
     const margin = p.grossRevenue > 0 ? (profit / p.grossRevenue) * 100 : 0
     return {
@@ -116,7 +116,9 @@ export async function GET(req: Request) {
       unit: p.unit,
       qty: p.qty,
       grossRevenue: p.grossRevenue,
-      revenue: p.revenue,
+      revenue: p.grossRevenue,
+      paidRevenue: p.revenue,
+      debtRevenue: Math.max(0, p.grossRevenue - p.revenue),
       unitCost: unitCostAvg,
       totalCost: p.totalCost,
       profit,
@@ -129,7 +131,9 @@ export async function GET(req: Request) {
   const totals = {
     qty: profitData.reduce((s, p) => s + p.qty, 0),
     grossRevenue: profitData.reduce((s, p) => s + p.grossRevenue, 0),
-    revenue: profitData.reduce((s, p) => s + p.revenue, 0),
+    revenue: profitData.reduce((s, p) => s + p.grossRevenue, 0),
+    paidRevenue: profitData.reduce((s, p) => s + p.paidRevenue, 0),
+    debtRevenue: profitData.reduce((s, p) => s + p.debtRevenue, 0),
     totalCost: profitData.reduce((s, p) => s + p.totalCost, 0),
     profit: profitData.reduce((s, p) => s + p.profit, 0),
   }

@@ -117,9 +117,10 @@ export default function ReportsPage() {
 
   // Compute stats from filtered orders
   const deliveredOrders = filteredOrders.filter(o => o.status === 'completed' || o.status === 'delivered')
-  // Doanh thu thực thu = paidAmount (tiền đã thu được), không phải totalAmount
+  // Doanh thu thực thu = paidAmount, Doanh số bán hàng = totalAmount
   const totalRevenue = deliveredOrders.reduce((s, o) => s + (o.paidAmount ?? 0), 0)
   const totalInvoiced = deliveredOrders.reduce((s, o) => s + o.totalAmount, 0)
+  const totalDebtPeriod = deliveredOrders.reduce((s, o) => s + (o.debtAmount ?? 0), 0)
   const totalDebt = customers.reduce((s, c) => s + c.debtBalance, 0)
   const debtCustomers = customers.filter(c => c.debtBalance > 0)
 
@@ -197,11 +198,12 @@ export default function ReportsPage() {
         {/* Overall KPI */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="card p-5 kpi-green">
-            <p className="text-xs text-slate-500 mb-0.5">Doanh thu thực thu</p>
-            <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalRevenue)}</p>
-            {totalInvoiced > totalRevenue && (
-              <p className="text-xs text-slate-500 mt-1">Hóa đơn: {formatCurrency(totalInvoiced)}</p>
-            )}
+            <p className="text-xs text-slate-500 mb-0.5">Doanh số bán hàng</p>
+            <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalInvoiced)}</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Thực thu: <span className="text-slate-300 font-medium">{formatCurrency(totalRevenue)}</span>
+              {totalDebtPeriod > 0 && <span className="text-red-400 ml-1.5 font-medium">(Nợ mới: {formatCurrency(totalDebtPeriod)})</span>}
+            </p>
           </div>
           <div className="card p-5 kpi-red">
             <p className="text-xs text-slate-500 mb-1">Tổng công nợ hiện tại</p>
@@ -268,8 +270,10 @@ export default function ReportsPage() {
 
             {tab === 1 && (
               <div className="card p-5">
-                <h3 className="font-semibold text-slate-200 mb-1">Lợi nhuận theo sản phẩm</h3>
-                <p className="text-xs text-slate-500 mb-4">Giá vốn = bình quân gia quyền các lần nhập · Doanh thu = tiền đã thu được</p>
+                <h3 className="font-semibold text-slate-200 mb-1">Lợi nhuận gộp theo sản phẩm</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Doanh số = Tổng tiền đơn xuất bán · Giá vốn = Snapshot giá nhập tại thời điểm bán · Lợi nhuận gộp = Doanh số - Giá vốn
+                </p>
                 {profitLoading ? (
                   <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-orange-500" /></div>
                 ) : !profitData ? (
@@ -279,27 +283,50 @@ export default function ReportsPage() {
                     {/* Profit KPIs */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                       <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-                        <p className="text-xs text-slate-500">Doanh thu thu được</p>
-                        <p className="text-base font-bold text-emerald-400">{formatCurrency(profitData.totals.revenue)}</p>
+                        <p className="text-xs text-slate-500">Doanh số bán hàng</p>
+                        <p className="text-base font-bold text-emerald-400">{formatCurrency(profitData.totals.grossRevenue)}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Đã thu: {formatCurrency(profitData.totals.paidRevenue || 0)}
+                        </p>
                       </div>
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                        <p className="text-xs text-slate-500">Chi phí nhập hàng</p>
+                        <p className="text-xs text-slate-500">Chi phí vốn (COGS)</p>
                         <p className="text-base font-bold text-blue-400">{formatCurrency(profitData.totals.totalCost)}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {profitData.totals.qty} sản phẩm xuất bán
+                        </p>
                       </div>
                       <div className={`${profitData.totals.profit >= 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-red-500/10 border-red-500/20'} border rounded-xl p-3`}>
-                        <p className="text-xs text-slate-500">Lợi nhuận</p>
-                        <p className={`text-base font-bold ${profitData.totals.profit >= 0 ? 'text-orange-400' : 'text-red-400'}`}>{formatCurrency(profitData.totals.profit)}</p>
+                        <p className="text-xs text-slate-500">Lợi nhuận gộp</p>
+                        <p className={`text-base font-bold ${profitData.totals.profit >= 0 ? 'text-orange-400' : 'text-red-400'}`}>
+                          {formatCurrency(profitData.totals.profit)}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Biên lãi gộp: {profitData.totals.grossRevenue > 0 ? ((profitData.totals.profit / profitData.totals.grossRevenue) * 100).toFixed(1) : 0}%
+                        </p>
                       </div>
                       <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-3">
-                        <p className="text-xs text-slate-500">Hóa đơn xuất</p>
-                        <p className="text-base font-bold text-slate-300">{formatCurrency(profitData.totals.grossRevenue)}</p>
+                        <p className="text-xs text-slate-500">Dòng tiền & Công nợ kỳ này</p>
+                        <p className="text-base font-bold text-purple-400">
+                          {formatCurrency(profitData.totals.paidRevenue || 0)}
+                        </p>
+                        <p className="text-[11px] text-red-400 mt-0.5">
+                          Nợ phát sinh: {formatCurrency(profitData.totals.debtRevenue || 0)}
+                        </p>
                       </div>
                     </div>
                     {/* Profit table */}
                     <div className="table-wrap">
                       <table className="table">
                         <thead><tr>
-                          <th>Sản phẩm</th><th>SL bán</th><th>Giá nhập / đv</th><th>Doanh thu</th><th>Chi phí vốn</th><th>Lợi nhuận</th><th>Biên</th>
+                          <th>Sản phẩm</th>
+                          <th>SL bán</th>
+                          <th>Giá vốn TB</th>
+                          <th>Doanh số</th>
+                          <th>Chi phí vốn</th>
+                          <th>Lợi nhuận gộp</th>
+                          <th>Biên lãi</th>
+                          <th>Thực thu / Nợ</th>
                         </tr></thead>
                         <tbody>
                           {profitData.items.map((p: any) => (
@@ -322,13 +349,19 @@ export default function ReportsPage() {
                                   </span>
                                 ) : <span className="text-slate-500">Chưa có giá</span>}
                               </td>
-                              <td className="text-emerald-400">{formatCurrency(p.revenue)}</td>
+                              <td className="text-emerald-400 font-medium">{formatCurrency(p.grossRevenue)}</td>
                               <td className="text-blue-400">{formatCurrency(p.totalCost)}</td>
                               <td className={p.profit >= 0 ? 'text-orange-400 font-semibold' : 'text-red-400 font-semibold'}>{formatCurrency(p.profit)}</td>
                               <td>
                                 <span className={`text-xs font-medium ${p.margin >= 20 ? 'text-emerald-400' : p.margin >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
                                   {p.margin.toFixed(1)}%
                                 </span>
+                              </td>
+                              <td className="text-xs">
+                                <span className="text-slate-300">{formatCurrency(p.paidRevenue || 0)}</span>
+                                {(p.debtRevenue || 0) > 0 && (
+                                  <span className="text-red-400 block text-[11px]">Nợ: {formatCurrency(p.debtRevenue)}</span>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -338,10 +371,20 @@ export default function ReportsPage() {
                             <td>Tổng</td>
                             <td>{profitData.totals.qty}</td>
                             <td>—</td>
-                            <td className="text-emerald-400">{formatCurrency(profitData.totals.revenue)}</td>
+                            <td className="text-emerald-400">{formatCurrency(profitData.totals.grossRevenue)}</td>
                             <td className="text-blue-400">{formatCurrency(profitData.totals.totalCost)}</td>
                             <td className={profitData.totals.profit >= 0 ? 'text-orange-400' : 'text-red-400'}>{formatCurrency(profitData.totals.profit)}</td>
-                            <td>—</td>
+                            <td>
+                              {profitData.totals.grossRevenue > 0
+                                ? `${((profitData.totals.profit / profitData.totals.grossRevenue) * 100).toFixed(1)}%`
+                                : '—'}
+                            </td>
+                            <td className="text-xs">
+                              <span className="text-slate-300">{formatCurrency(profitData.totals.paidRevenue || 0)}</span>
+                              {(profitData.totals.debtRevenue || 0) > 0 && (
+                                <span className="text-red-400 block text-[11px]">Nợ: {formatCurrency(profitData.totals.debtRevenue)}</span>
+                              )}
+                            </td>
                           </tr>
                         </tfoot>
                       </table>
