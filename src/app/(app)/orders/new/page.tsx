@@ -8,7 +8,7 @@ import {
   ArrowLeft, Save, Loader2, ShoppingCart, Plus, Trash2, Search,
   RefreshCw, Package, AlertTriangle, Calendar
 } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, getLocalDateString } from '@/lib/utils'
 
 interface OrderItem {
   productId: string
@@ -42,7 +42,7 @@ export default function NewOrderPage() {
   const [cylinderDepositAmount, setCylinderDepositAmount] = useState<number | ''>(200000)
 
   // Order date — defaults to today, can be changed to backdate
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = getLocalDateString()
   const [orderDate, setOrderDate] = useState(todayStr)
 
   useEffect(() => {

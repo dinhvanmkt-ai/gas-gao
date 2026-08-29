@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Header from '@/components/Header'
 import Link from 'next/link'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import { Plus, Trash2, Loader2, Wheat, Calendar, X, Pencil, CheckCircle, AlertTriangle } from 'lucide-react'
 
 interface RicePurchase {
@@ -22,10 +22,12 @@ interface RicePurchase {
   }[]
 }
 
-function formatDate(d: string) {
-  const dt = new Date(d)
-  return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}/${dt.getFullYear()}`
-}
+const PRESETS = [
+  { key: 'month', label: 'Tháng này' },
+  { key: 'lastMonth', label: 'Tháng trước' },
+  { key: '3months', label: '3 tháng' },
+  { key: 'custom', label: 'Tùy chọn' },
+]
 
 export default function RicePurchasesPage() {
   const [records, setRecords] = useState<RicePurchase[]>([])
@@ -42,23 +44,23 @@ export default function RicePurchasesPage() {
   function getRange() {
     const now = new Date()
     if (preset === 'month') return {
-      from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
-      to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      from: getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)),
+      to: getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     }
     if (preset === 'lastMonth') {
       return {
-        from: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0],
-        to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0],
+        from: getLocalDateString(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+        to: getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 0)),
       }
     }
     if (preset === '3months') return {
-      from: new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().split('T')[0],
-      to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      from: getLocalDateString(new Date(now.getFullYear(), now.getMonth() - 2, 1)),
+      to: getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     }
     if (preset === 'custom' && customFrom && customTo) return { from: customFrom, to: customTo }
     return {
-      from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
-      to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      from: getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)),
+      to: getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     }
   }
 

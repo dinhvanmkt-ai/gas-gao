@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Header from '@/components/Header'
 import { Truck, Plus, Loader2, Trash2, AlertTriangle, Calendar, CheckCircle } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import Link from 'next/link'
 
 const PRESETS = [
@@ -16,21 +16,21 @@ const PRESETS = [
 function getRange(preset: string, customFrom: string, customTo: string) {
   const now = new Date()
   if (preset === 'month') return {
-    from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
-    to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+    from: getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)),
+    to: getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   }
   if (preset === 'lastMonth') return {
-    from: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0],
-    to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0],
+    from: getLocalDateString(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+    to: getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 0)),
   }
   if (preset === '3months') return {
-    from: new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().split('T')[0],
-    to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+    from: getLocalDateString(new Date(now.getFullYear(), now.getMonth() - 2, 1)),
+    to: getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   }
   if (preset === 'custom' && customFrom && customTo) return { from: customFrom, to: customTo }
   return {
-    from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
-    to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+    from: getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)),
+    to: getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   }
 }
 

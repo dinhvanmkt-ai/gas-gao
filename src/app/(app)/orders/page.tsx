@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Header from '@/components/Header'
 import { Search, Plus, ShoppingCart, Loader2, Download, Calendar } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import Link from 'next/link'
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
@@ -135,7 +135,7 @@ export default function OrdersPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `don-hang-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `don-hang-${getLocalDateString()}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }

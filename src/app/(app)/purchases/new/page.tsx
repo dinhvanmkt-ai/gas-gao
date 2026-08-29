@@ -8,7 +8,7 @@ import {
   ArrowLeft, Save, Loader2, Truck, Plus, Trash2,
   UserPlus, Package, X, CheckCircle, FileText, Calendar
 } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, getLocalDateString } from '@/lib/utils'
 
 interface PurchaseItem {
   productId: string
@@ -33,7 +33,7 @@ export default function NewPurchasePage() {
   const [items, setItems] = useState<PurchaseItem[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [purchaseDate, setPurchaseDate] = useState(() => getLocalDateString())
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'owe'>('paid')
   
   // Cylinder transaction

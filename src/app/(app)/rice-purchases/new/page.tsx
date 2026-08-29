@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Link from 'next/link'
 import { ArrowLeft, Save, Loader2, Plus, Trash2, UserPlus, X, CheckCircle, Calendar, Wheat } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, getLocalDateString } from '@/lib/utils'
 
 interface RiceItem {
   riceProductId: string
@@ -31,7 +31,7 @@ export default function NewRicePurchasePage() {
   const [riceProducts, setRiceProducts] = useState<RiceProduct[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [supplierId, setSupplierId] = useState('')
-  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [purchaseDate, setPurchaseDate] = useState(() => getLocalDateString())
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'owe'>('paid')
   const [note, setNote] = useState('')
   const [items, setItems] = useState<RiceItem[]>([])
@@ -41,7 +41,7 @@ export default function NewRicePurchasePage() {
   const [showNewSupplier, setShowNewSupplier] = useState(false)
   const [newSupplier, setNewSupplier] = useState({ name: '', phone: '' })
   const [creatingSupplier, setCreatingSupplier] = useState(false)
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = getLocalDateString()
 
   useEffect(() => {
     Promise.all([
