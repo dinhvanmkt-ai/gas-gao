@@ -18,6 +18,10 @@ const PAY_MAP: Record<string, string> = {
   debt: 'Công nợ',
 }
 
+function toInputDate(d: Date): string {
+  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`
+}
+
 function getTimeRange(key: string): { from: Date; to: Date } | null {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -27,7 +31,9 @@ function getTimeRange(key: string): { from: Date; to: Date } | null {
     case 'today': return { from: today, to }
     case 'week': {
       const from = new Date(today)
-      from.setDate(from.getDate() - from.getDay() + 1) // Monday
+      const day = from.getDay()
+      const diff = from.getDate() - day + (day === 0 ? -6 : 1) // Monday
+      from.setDate(diff)
       return { from, to }
     }
     case 'month': return { from: new Date(now.getFullYear(), now.getMonth(), 1), to }
@@ -41,10 +47,19 @@ export default function OrdersPage() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [productType, setProductType] = useState('')
-  const [timeFilter, setTimeFilter] = useState('')
+  const [timeFilter, setTimeFilter] = useState('today')
   const [payFilter, setPayFilter] = useState('')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+
+  const handleSelectTimeFilter = (key: string) => {
+    setTimeFilter(key)
+    if (key === 'custom') {
+      const todayStr = toInputDate(new Date())
+      if (!customFrom) setCustomFrom(todayStr)
+      if (!customTo) setCustomTo(todayStr)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -191,7 +206,7 @@ export default function OrdersPage() {
               ].map(f => (
                 <button
                   key={f.key}
-                  onClick={() => setTimeFilter(f.key)}
+                  onClick={() => handleSelectTimeFilter(f.key)}
                   className={`px-3 py-1 rounded-lg text-xs font-medium transition-all border ${
                     timeFilter === f.key
                       ? 'bg-orange-500 text-white border-orange-500'
