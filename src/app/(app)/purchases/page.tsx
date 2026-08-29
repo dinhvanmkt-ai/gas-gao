@@ -218,8 +218,12 @@ export default function PurchasesPage() {
                 </thead>
                 <tbody>
                   {purchases.map((p: any) => (
-                    <tr key={p.id} className={deleteId === p.id ? 'bg-red-500/5' : ''}>
-                      <td><span className="font-mono text-xs text-blue-400">{p.purchaseNo}</span></td>
+                    <tr key={p.id} className={deleteId === p.id ? 'bg-red-500/5' : 'hover:bg-slate-800/40 cursor-pointer'}>
+                      <td>
+                        <Link href={`/purchases/${p.id}`} className="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline">
+                          {p.purchaseNo}
+                        </Link>
+                      </td>
                       <td className="font-medium">{p.supplier?.name}</td>
                       <td><div className="text-xs text-slate-400">{p.items?.map((i: any) => `${i.qty} ${i.product?.unit} ${i.product?.name}`).join(', ')}</div></td>
                       <td className="font-medium">{formatCurrency(p.totalAmount)}</td>
@@ -237,7 +241,14 @@ export default function PurchasesPage() {
                       <td className="text-xs text-slate-500">{formatDate(p.purchaseDate ?? p.receivedAt ?? p.createdAt)}</td>
                       <td>
                         <div className="flex items-center gap-1">
-                          {/* Nút đánh dấu đã trả NCC */}
+                          <Link href={`/purchases/${p.id}`}
+                            className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                            title="Xem chi tiết">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </Link>
                           {p.paymentStatus === 'owe' && (
                             <button
                               onClick={() => markPaid(p.id)}
