@@ -41,6 +41,9 @@ model Customer {
   // Cylinder deposit
   cylinderDeposit      Float     @default(0) // tiền cọc vỏ đang giữ
   cylinderDebt         Float     @default(0) // nợ vỏ
+  // Location
+  lat       Float?    // vĩ độ (latitude)
+  lng       Float?    // kinh độ (longitude)
   // Metadata
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt

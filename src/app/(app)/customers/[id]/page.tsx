@@ -17,7 +17,7 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
+  const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '', coordInput: '' })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -32,7 +32,8 @@ export default function CustomerDetailPage() {
     if (res.ok) {
       const data = await res.json()
       setCustomer(data)
-      setForm({ name: data.name, phone: data.phone, address: data.address ?? '', notes: data.notes ?? '' })
+      const coordInput = data.lat && data.lng ? `${data.lat}, ${data.lng}` : ''
+      setForm({ name: data.name, phone: data.phone, address: data.address ?? '', notes: data.notes ?? '', coordInput })
       setNotesValue(data.notes ?? '')
     }
     setLoading(false)
@@ -42,10 +43,19 @@ export default function CustomerDetailPage() {
 
   async function handleSave() {
     setSaving(true)
+    // Parse tọa độ từ chuỗi "lat, lng"
+    let lat: number | null = null
+    let lng: number | null = null
+    if (form.coordInput.trim()) {
+      const parts = form.coordInput.split(',').map(s => parseFloat(s.trim()))
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        lat = parts[0]; lng = parts[1]
+      }
+    }
     const res = await fetch(`/api/customers/${params.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, notes: form.notes, lat, lng }),
     })
     if (res.ok) {
       const data = await res.json()
@@ -181,12 +191,38 @@ export default function CustomerDetailPage() {
                 <div><label className="label">Tên</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input" /></div>
                 <div><label className="label">Số điện thoại</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input" /></div>
                 <div><label className="label">Địa chỉ</label><input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="input" /></div>
+                <div>
+                  <label className="label flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-blue-400" /> Tọa độ GPS
+                  </label>
+                  <input
+                    value={form.coordInput}
+                    onChange={e => setForm({ ...form, coordInput: e.target.value })}
+                    className="input font-mono text-sm"
+                    placeholder="10.123456, 106.654321"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Mở Google Maps → bấm vào vị trí → copy tọa độ hiện ở dưới cùng
+                  </p>
+                </div>
                 <div><label className="label">Ghi chú</label><textarea rows={3} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="input" /></div>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-slate-500" /><span>{customer.phone}</span></div>
                 <div className="flex items-center gap-2 text-sm"><MapPin className="w-3.5 h-3.5 text-slate-500" /><span>{customer.address || '—'}</span></div>
+                {customer.lat && customer.lng ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="font-mono text-xs text-blue-300">{customer.lat.toFixed(6)}, {customer.lng.toFixed(6)}</span>
+                    <a href={`https://www.google.com/maps?q=${customer.lat},${customer.lng}`} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:underline ml-1">↗ Maps</a>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <MapPin className="w-3.5 h-3.5" /><span className="text-xs">Chưa có tọa độ</span>
+                  </div>
+                )}
                 <div className="flex items-start gap-2 text-sm"><StickyNote className="w-3.5 h-3.5 text-slate-500 mt-0.5" /><span>{customer.notes || '—'}</span></div>
                 <div className="flex items-center gap-2 text-sm"><Calendar className="w-3.5 h-3.5 text-slate-500" /><span className="text-slate-500">Tạo: {formatDate(customer.createdAt)}</span></div>
               </div>

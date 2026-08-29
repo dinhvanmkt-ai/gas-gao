@@ -18,6 +18,7 @@ import {
   Wheat,
   BookOpen,
   Tag,
+  MapPin,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/components/SidebarProvider'
@@ -26,6 +27,7 @@ import { useEffect } from 'react'
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/customers', label: 'Khách Hàng', icon: Users },
+  { href: '/map', label: 'Bản Đồ', icon: MapPin },
   { href: '/orders', label: 'Đơn Hàng', icon: ShoppingCart },
   { href: '/products', label: 'Sản Phẩm', icon: Tag },
   { href: '/inventory', label: 'Kho Hàng', icon: Package },

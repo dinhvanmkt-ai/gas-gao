@@ -14,6 +14,7 @@ export default function NewCustomerPage() {
     address: '',
     notes: '',
     gasCylinderQty: 0,
+    coordInput: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -25,11 +26,30 @@ export default function NewCustomerPage() {
       setError('Vui lòng nhập tên và số điện thoại.')
       return
     }
+
+    let lat: number | null = null
+    let lng: number | null = null
+    if (form.coordInput.trim()) {
+      const parts = form.coordInput.split(',').map(s => parseFloat(s.trim()))
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        lat = parts[0]
+        lng = parts[1]
+      }
+    }
+
     setSaving(true)
     const res = await fetch('/api/customers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        name: form.name,
+        phone: form.phone,
+        address: form.address,
+        notes: form.notes,
+        gasCylinderQty: form.gasCylinderQty,
+        lat,
+        lng,
+      }),
     })
     if (res.ok) {
       const data = await res.json()
@@ -94,6 +114,19 @@ export default function NewCustomerPage() {
                   className="input"
                   placeholder="123 Đường ABC, Phường..."
                 />
+              </div>
+
+              <div>
+                <label className="label">Tọa độ GPS (Google Maps)</label>
+                <input
+                  value={form.coordInput}
+                  onChange={e => setForm({ ...form, coordInput: e.target.value })}
+                  className="input font-mono text-sm"
+                  placeholder="10.123456, 106.654321"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Mở Google Maps → bấm vào vị trí nhà khách → copy tọa độ dán vào đây
+                </p>
               </div>
 
               <div>
