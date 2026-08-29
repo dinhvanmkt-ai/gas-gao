@@ -171,7 +171,7 @@ export default function NewRicePurchasePage() {
               </div>
               <div>
                 <label className="label flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Ngày nhập</label>
-                <input type="date" value={purchaseDate} max={todayStr} onChange={e => setPurchaseDate(e.target.value)} className="input" />
+                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="input" />
               </div>
             </div>
           </div>

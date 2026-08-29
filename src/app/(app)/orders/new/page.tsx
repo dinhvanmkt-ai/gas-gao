@@ -8,7 +8,7 @@ import {
   ArrowLeft, Save, Loader2, ShoppingCart, Plus, Trash2, Search,
   RefreshCw, Package, AlertTriangle, Calendar
 } from 'lucide-react'
-import { formatCurrency, getLocalDateString } from '@/lib/utils'
+import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 
 interface OrderItem {
   productId: string
@@ -489,12 +489,11 @@ export default function NewOrderPage() {
                 id="order-date"
                 type="date"
                 value={orderDate}
-                max={todayStr}
                 onChange={e => setOrderDate(e.target.value)}
                 className="input w-44"
               />
               {orderDate !== todayStr && (
-                <p className="text-xs text-yellow-400 mt-1">⚠ Đơn hàng sẽ được ghi nhận vào ngày {orderDate}</p>
+                <p className="text-xs text-yellow-400 mt-1">⚠ Đơn hàng sẽ được ghi nhận vào ngày {formatDate(orderDate)}</p>
               )}
             </div>
           </div>
