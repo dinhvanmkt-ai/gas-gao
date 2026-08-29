@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Link from 'next/link'
-import { ShoppingCart, Phone, MapPin, ArrowRight } from 'lucide-react'
+import { ShoppingCart, Phone, MapPin, ArrowRight, Navigation } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
 interface CustomerMapItem {
@@ -171,18 +171,27 @@ export default function MapView({ customers, selectedId, onSelect }: MapViewProp
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/50 text-xs">
+                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-700/50 text-xs">
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1 rounded bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-medium flex items-center gap-1 transition-colors"
+                      title="Mở chỉ đường trên Google Maps"
+                    >
+                      <Navigation className="w-3 h-3 text-blue-400" /> Chỉ đường
+                    </a>
                     <Link
                       href={`/customers/${c.id}`}
-                      className="text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
+                      className="text-slate-400 hover:text-slate-200 font-medium flex items-center gap-0.5 px-1 py-1"
                     >
                       Chi tiết <ArrowRight className="w-3 h-3" />
                     </Link>
                     <Link
                       href={`/orders/new?customer=${c.id}`}
-                      className="px-2.5 py-1 rounded bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center gap-1"
+                      className="px-2.5 py-1 rounded bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center gap-1 transition-colors"
                     >
-                      <ShoppingCart className="w-3 h-3" /> Đặt hàng
+                      <ShoppingCart className="w-3 h-3" /> Tạo đơn
                     </Link>
                   </div>
                 </div>

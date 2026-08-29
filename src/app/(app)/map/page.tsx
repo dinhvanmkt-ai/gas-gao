@@ -128,11 +128,24 @@ export default function MapPage() {
                       </div>
                     </div>
                     {c.address && <p className="text-xs text-slate-600 mt-1 truncate">{c.address}</p>}
-                    <div className="flex items-center gap-2 mt-2">
-                      <Link href={`/customers/${c.id}`} onClick={e => e.stopPropagation()}
-                        className="text-xs text-blue-400 hover:text-blue-300">Chi tiết →</Link>
+                    <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-700/40">
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+                          title="Mở chỉ đường Google Maps"
+                        >
+                          ↗ Chỉ đường
+                        </a>
+                        <span className="text-slate-700">·</span>
+                        <Link href={`/customers/${c.id}`} onClick={e => e.stopPropagation()}
+                          className="text-xs text-blue-400 hover:text-blue-300">Chi tiết</Link>
+                      </div>
                       <Link href={`/orders/new?customer=${c.id}`} onClick={e => e.stopPropagation()}
-                        className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-0.5">
+                        className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-0.5 font-medium">
                         <ShoppingCart className="w-3 h-3" /> Tạo đơn
                       </Link>
                     </div>
