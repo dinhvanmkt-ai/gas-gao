@@ -57,8 +57,8 @@ export default function NewPurchasePage() {
       fetch('/api/suppliers').then(r => r.json()),
       fetch('/api/products').then(r => r.json()),
     ]).then(([s, p]) => {
-      setSuppliers(Array.isArray(s) ? s : [])
-      setProducts(Array.isArray(p) ? p : [])
+      setSuppliers(Array.isArray(s) ? s.filter((x: any) => x.type === 'gas') : [])
+      setProducts(Array.isArray(p) ? p.filter((x: any) => x.type === 'gas') : [])
     })
   }, [])
 
@@ -214,14 +214,9 @@ export default function NewPurchasePage() {
 
             {showNewSupplier && (
               <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div><label className="label">Tên NCC *</label><input value={newSupplier.name} onChange={e => setNewSupplier({ ...newSupplier, name: e.target.value })} className="input" placeholder="Tên NCC" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className="label">Tên NCC *</label><input value={newSupplier.name} onChange={e => setNewSupplier({ ...newSupplier, name: e.target.value })} className="input" placeholder="Tên NCC gas" /></div>
                   <div><label className="label">SĐT</label><input value={newSupplier.phone} onChange={e => setNewSupplier({ ...newSupplier, phone: e.target.value })} className="input" placeholder="0912..." /></div>
-                  <div><label className="label">Loại</label>
-                    <select value={newSupplier.type} onChange={e => setNewSupplier({ ...newSupplier, type: e.target.value })} className="input">
-                      <option value="gas">Gas</option><option value="rice">Gạo</option><option value="other">Khác</option>
-                    </select>
-                  </div>
                 </div>
                 <button type="button" onClick={createSupplier} disabled={creatingSupplier} className="btn-primary text-sm">
                   {creatingSupplier ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Tạo NCC
@@ -231,10 +226,10 @@ export default function NewPurchasePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="label">Nhà cung cấp *</label>
+                <label className="label">Nhà cung cấp gas *</label>
                 <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="input">
-                  <option value="">— Chọn NCC —</option>
-                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type})</option>)}
+                  <option value="">— Chọn NCC gas —</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               <div>
@@ -450,27 +445,14 @@ export default function NewPurchasePage() {
 
             <div className="space-y-3">
               <div>
-                <label className="label">Tên sản phẩm *</label>
+                <label className="label">Tên sản phẩm gas *</label>
                 <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))}
-                  className="input" placeholder="VD: Gas 12kg, Gạo ST25..." autoFocus />
+                  className="input" placeholder="VD: Gas 12kg Siamgas, Gas 45kg..." autoFocus />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Loại</label>
-                  <select value={newProduct.type} onChange={e => {
-                    const type = e.target.value
-                    setNewProduct(p => ({ ...p, type, unit: type === 'gas' ? 'bình' : type === 'rice' ? 'kg' : 'cái' }))
-                  }} className="input">
-                    <option value="gas">Gas</option>
-                    <option value="rice">Gạo</option>
-                    <option value="other">Khác</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Đơn vị</label>
-                  <input value={newProduct.unit} onChange={e => setNewProduct(p => ({ ...p, unit: e.target.value }))}
-                    className="input" placeholder="bình / kg / thùng" />
-                </div>
+              <div>
+                <label className="label">Đơn vị</label>
+                <input value={newProduct.unit} onChange={e => setNewProduct(p => ({ ...p, unit: e.target.value }))}
+                  className="input" placeholder="bình" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -130,71 +130,21 @@ export async function POST(req: Request) {
         },
       })
 
-      // ─── Cập nhật tồn kho bình cho sản phẩm gas ────────────────────
-      // CHỈ tăng fullQty khi KHÔNG phải exchange (exchange xử lý riêng bên dưới)
-      if (product.type === 'gas' && cylinderTxType !== 'exchange') {
-        const matchingType = await prisma.cylinderType.findFirst({
-          where: { name: { contains: product.name } },
-          orderBy: { name: 'asc' },
-        })
-        const targetType = matchingType ?? await prisma.cylinderType.findFirst({ orderBy: { name: 'asc' } })
-        if (targetType) {
-          await prisma.cylinderType.update({
-            where: { id: targetType.id },
-            data: { fullQty: { increment: item.qty } },
-          })
-        }
-      }
-      // ────────────────────────────────────────────────────────────────
+      // Product.stock đã được tăng ở trên → bình đầy tự động đồng bộ
     }
 
-    // ─── CYLINDER LOGIC (Exchange / Buy vỏ riêng với NCC) ────────────
-    if (cylinderTxType && cylQty > 0) {
-
-      if (cylinderTxType === 'exchange') {
-        // Đổi vỏ rỗng trong kho → bình đầy
-        // Tìm CylinderType phù hợp với gas trong đơn
-        const firstGasProduct = await prisma.product.findFirst({
-          where: { id: { in: itemsWithTotal.map((i: any) => i.productId) }, type: 'gas' }
+    // ─── CYLINDER LOGIC (Exchange → giảm vỏ rỗng, Buy → không cần làm gì thêm) ─
+    if (cylinderTxType === 'exchange' && cylQty > 0) {
+      // Đổi vỏ rỗng → bình đầy: giảm số vỏ rỗng tồn kho
+      const emptyRow = await prisma.cylinderEmpty.findFirst()
+      if (emptyRow) {
+        await prisma.cylinderEmpty.update({
+          where: { id: emptyRow.id },
+          data: { qty: Math.max(0, emptyRow.qty - cylQty) },
         })
-        const matchingType = firstGasProduct
-          ? await prisma.cylinderType.findFirst({ where: { name: { contains: firstGasProduct.name } }, orderBy: { name: 'asc' } })
-          : null
-        const targetType = matchingType ?? await prisma.cylinderType.findFirst({ orderBy: { name: 'asc' } })
-
-        if (targetType) {
-          await prisma.cylinderType.update({
-            where: { id: targetType.id },
-            data: { fullQty: { increment: cylQty } },
-          })
-        }
-
-        // Giảm số vỏ rỗng
-        const emptyRow = await prisma.cylinderEmpty.findFirst()
-        if (emptyRow) {
-          await prisma.cylinderEmpty.update({
-            where: { id: emptyRow.id },
-            data: { qty: Math.max(0, emptyRow.qty - cylQty) },
-          })
-        }
-
-      } else if (cylinderTxType === 'buy') {
-        // Mua vỏ mới riêng (không kèm gas) → tăng fullQty
-        const firstGasProduct = await prisma.product.findFirst({
-          where: { id: { in: itemsWithTotal.map((i: any) => i.productId) }, type: 'gas' }
-        })
-        const matchingType = firstGasProduct
-          ? await prisma.cylinderType.findFirst({ where: { name: { contains: firstGasProduct.name } }, orderBy: { name: 'asc' } })
-          : null
-        const targetType = matchingType ?? await prisma.cylinderType.findFirst({ orderBy: { name: 'asc' } })
-        if (targetType) {
-          await prisma.cylinderType.update({
-            where: { id: targetType.id },
-            data: { fullQty: { increment: cylQty } },
-          })
-        }
       }
     }
+    // buy: Product.stock đã tăng ở loop trên → không cần làm thêm
     // ────────────────────────────────────────────────────────────────
   }
 
