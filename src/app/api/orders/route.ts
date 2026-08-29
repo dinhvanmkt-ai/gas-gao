@@ -12,22 +12,33 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') ?? ''
   const status = searchParams.get('status') ?? ''
+  const productType = searchParams.get('productType') ?? ''
+
+  const whereClause: any = {
+    ...(status ? { status } : {}),
+    ...(q ? {
+      OR: [
+        { orderNo: { contains: q } },
+        { customer: { name: { contains: q } } },
+      ],
+    } : {}),
+  }
+
+  if (productType === 'gas') {
+    whereClause.items = { some: { product: { type: 'gas' } } }
+  } else if (productType === 'rice') {
+    whereClause.items = { some: { product: { type: 'rice' } } }
+  } else if (productType === 'other') {
+    whereClause.items = { some: { product: { type: { notIn: ['gas', 'rice'] } } } }
+  }
 
   const orders = await prisma.order.findMany({
-    where: {
-      ...(status ? { status } : {}),
-      ...(q ? {
-        OR: [
-          { orderNo: { contains: q } },
-          { customer: { name: { contains: q } } },
-        ],
-      } : {}),
-    },
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: {
       customer: { select: { name: true, phone: true } },
-      items: { include: { product: { select: { name: true, unit: true } } } },
+      items: { include: { product: { select: { id: true, name: true, unit: true, type: true } } } },
     },
   })
 
