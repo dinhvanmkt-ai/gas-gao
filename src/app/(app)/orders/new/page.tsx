@@ -211,23 +211,60 @@ export default function NewOrderPage() {
               <ShoppingCart className="w-4 h-4 text-slate-400" /> Sản phẩm
             </h3>
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              {products.map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => addItem(p)}
-                  disabled={items.some(i => i.productId === p.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                    items.some(i => i.productId === p.id)
-                      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-                      : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:border-orange-500/50'
-                  }`}
-                >
-                  <Plus className="w-3 h-3 inline mr-1" />{p.name} ({formatCurrency(p.priceRetail)})
-                </button>
-              ))}
-            </div>
+            {/* Grouped product grid */}
+            {(['gas', 'rice', 'other'] as const).map(type => {
+              const typeProducts = products.filter((p: any) => p.type === type)
+              if (typeProducts.length === 0) return null
+              const typeConfig = {
+                gas:   { label: '🔥 Gas',  color: 'text-orange-400', border: 'border-orange-500/20', bg: 'hover:bg-orange-500/10 hover:border-orange-500/40', activeBg: 'bg-orange-500/20 border-orange-500/40 text-orange-300' },
+                rice:  { label: '🌾 Gạo',  color: 'text-green-400',  border: 'border-green-500/20',  bg: 'hover:bg-green-500/10 hover:border-green-500/40',   activeBg: 'bg-green-500/20 border-green-500/40 text-green-300' },
+                other: { label: '📦 Khác', color: 'text-blue-400',   border: 'border-blue-500/20',   bg: 'hover:bg-blue-500/10 hover:border-blue-500/40',     activeBg: 'bg-blue-500/20 border-blue-500/40 text-blue-300' },
+              }[type]
+              return (
+                <div key={type} className="mb-5 last:mb-0">
+                  <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${typeConfig.color}`}>
+                    {typeConfig.label}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {typeProducts.map((p: any) => {
+                      const inCart = items.some(i => i.productId === p.id)
+                      const lowStock = p.stock <= p.minStock && p.stock > 0
+                      const outOfStock = p.stock <= 0
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => addItem(p)}
+                          disabled={inCart || outOfStock}
+                          className={`relative flex flex-col items-start p-3 rounded-xl border text-left transition-all ${
+                            inCart
+                              ? typeConfig.activeBg
+                              : outOfStock
+                              ? 'bg-slate-800/20 border-slate-700/30 opacity-50 cursor-not-allowed'
+                              : `bg-slate-800/40 border-slate-700/50 text-slate-300 ${typeConfig.bg} cursor-pointer`
+                          }`}
+                        >
+                          {inCart && (
+                            <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-current flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 text-slate-900" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </span>
+                          )}
+                          <p className="text-sm font-medium leading-tight pr-5">{p.name}</p>
+                          <p className={`text-xs mt-1 font-semibold ${inCart ? 'opacity-80' : 'text-slate-400'}`}>
+                            {p.priceRetail.toLocaleString('vi-VN')}đ
+                          </p>
+                          <p className={`text-xs mt-0.5 ${outOfStock ? 'text-red-400' : lowStock ? 'text-yellow-400' : 'text-slate-600'}`}>
+                            {outOfStock ? '⛔ Hết hàng' : `Tồn: ${p.stock} ${p.unit}`}
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
 
             {items.length > 0 && (
               <div className="table-wrap">
