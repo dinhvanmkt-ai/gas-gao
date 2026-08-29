@@ -62,14 +62,23 @@ export default function ReportsPage() {
   const [customTo, setCustomTo] = useState('')
 
   const dateRange = useMemo(() => {
-    if (preset === 'custom' && customFrom && customTo) {
-      return {
-        from: new Date(customFrom),
-        to: new Date(customTo + 'T23:59:59.999'),
-      }
+    if (preset === 'custom') {
+      const now = new Date()
+      const from = customFrom ? new Date(customFrom + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1)
+      const to = customTo ? new Date(customTo + 'T23:59:59.999') : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      return { from, to }
     }
     return getDateRange(preset)
   }, [preset, customFrom, customTo])
+
+  const handleSelectPreset = (key: string) => {
+    setPreset(key)
+    if (key === 'custom') {
+      const current = getDateRange('month')
+      if (!customFrom) setCustomFrom(toInputDate(current.from))
+      if (!customTo) setCustomTo(toInputDate(current.to))
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -82,24 +91,24 @@ export default function ReportsPage() {
     })
   }, [])
 
-  // Fetch orders khi dateRange thay đổi — dùng API riêng không giới hạn 50 đơn
+  // Fetch orders khi dateRange thay đổi — dùng toInputDate để tránh lệch múi giờ UTC+7
   useEffect(() => {
     const params = new URLSearchParams({
-      from: dateRange.from.toISOString().split('T')[0],
-      to: dateRange.to.toISOString().split('T')[0],
+      from: toInputDate(dateRange.from),
+      to: toInputDate(dateRange.to),
     })
     fetch(`/api/reports/orders?${params}`)
       .then(r => r.json())
       .then(o => setOrders(Array.isArray(o) ? o : []))
   }, [dateRange])
 
-  // Load profit when tab=1 or date range changes
+  // Load profit when tab=1 or date range changes — dùng toInputDate
   useEffect(() => {
     if (tab !== 1) return
     setProfitLoading(true)
     const params = new URLSearchParams({
-      from: dateRange.from.toISOString().split('T')[0],
-      to: dateRange.to.toISOString().split('T')[0],
+      from: toInputDate(dateRange.from),
+      to: toInputDate(dateRange.to),
     })
     fetch(`/api/reports/profit?${params}`)
       .then(r => r.ok ? r.json() : null)
@@ -161,7 +170,7 @@ export default function ReportsPage() {
               {PRESETS.map(p => (
                 <button
                   key={p.key}
-                  onClick={() => setPreset(p.key)}
+                  onClick={() => handleSelectPreset(p.key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     preset === p.key
                       ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
