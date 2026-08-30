@@ -47,6 +47,11 @@ export default function NewOtherPurchasePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  // New supplier inline
+  const [showNewSupplier, setShowNewSupplier] = useState(false)
+  const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', type: 'other' })
+  const [creatingSupplier, setCreatingSupplier] = useState(false)
+
   useEffect(() => {
     // Fetch products (type = 'other')
     fetch('/api/products')
@@ -54,12 +59,30 @@ export default function NewOtherPurchasePage() {
       .then((data: Product[]) => setProducts(data.filter(p => p.type === 'other')))
       .catch(console.error)
 
-    // Fetch suppliers
+    // Fetch suppliers (type = 'other' or all, let's show all or just 'other')
     fetch('/api/suppliers')
       .then(r => r.json())
-      .then((data: Supplier[]) => setSuppliers(data))
+      .then((data: Supplier[]) => setSuppliers(data)) // Showing all, but can filter if wanted
       .catch(console.error)
   }, [])
+
+  async function createSupplier() {
+    if (!newSupplier.name.trim()) return
+    setCreatingSupplier(true)
+    const res = await fetch('/api/suppliers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSupplier),
+    })
+    if (res.ok) {
+      const s = await res.json()
+      setSuppliers(prev => [...prev, s])
+      setSupplierId(s.id)
+      setShowNewSupplier(false)
+      setNewSupplier({ name: '', phone: '', type: 'other' })
+    }
+    setCreatingSupplier(false)
+  }
 
   const addItem = () => {
     setItems(prev => [
@@ -117,6 +140,11 @@ export default function NewOtherPurchasePage() {
   }, [items])
 
   async function handleSubmit(action: 'draft' | 'confirm') {
+    if (!supplierId) {
+      setError('Vui lòng chọn nhà cung cấp')
+      return
+    }
+
     if (items.length === 0) {
       setError('Vui lòng thêm ít nhất 1 sản phẩm')
       return
@@ -134,7 +162,7 @@ export default function NewOtherPurchasePage() {
     const payload = {
       action,
       purchaseDate,
-      supplierId: supplierId || null,
+      supplierId,
       paymentStatus,
       note,
       items: items.map(i => ({
@@ -188,10 +216,57 @@ export default function NewOtherPurchasePage() {
           )}
 
           <div className="card p-6">
-            <h2 className="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-purple-400" />
-              Thông tin phiếu nhập
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-purple-400" />
+                Thông tin phiếu nhập
+              </h2>
+              <button 
+                type="button" 
+                onClick={() => setShowNewSupplier(!showNewSupplier)} 
+                className="btn-ghost text-xs text-purple-400 hover:text-purple-300"
+              >
+                <Plus className="w-4 h-4 inline" /> Tạo NCC mới
+              </button>
+            </div>
+
+            {showNewSupplier && (
+              <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Tên NCC *</label>
+                    <input 
+                      value={newSupplier.name} 
+                      onChange={e => setNewSupplier({ ...newSupplier, name: e.target.value })} 
+                      className="input w-full" 
+                      placeholder="Tên nhà cung cấp" 
+                    />
+                  </div>
+                  <div>
+                    <label className="label">SĐT</label>
+                    <input 
+                      value={newSupplier.phone} 
+                      onChange={e => setNewSupplier({ ...newSupplier, phone: e.target.value })} 
+                      className="input w-full" 
+                      placeholder="Số điện thoại" 
+                    />
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={createSupplier} 
+                  disabled={creatingSupplier || !newSupplier.name.trim()} 
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {creatingSupplier ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  Thêm NCC
+                </button>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">

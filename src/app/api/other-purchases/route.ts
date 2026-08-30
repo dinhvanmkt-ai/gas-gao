@@ -57,6 +57,10 @@ export async function POST(req: Request) {
 
   const isDraft = action === 'draft'
 
+  if (!supplierId) {
+    return NextResponse.json({ error: 'Cần chọn nhà cung cấp' }, { status: 400 })
+  }
+
   if (!items || items.length === 0) {
     return NextResponse.json({ error: 'Cần ít nhất 1 sản phẩm' }, { status: 400 })
   }
@@ -91,7 +95,7 @@ export async function POST(req: Request) {
   const purchase = await prisma.purchase.create({
     data: {
       purchaseNo,
-      supplierId: supplierId || null,
+      supplierId,
       totalAmount,
       paidAmount: paymentStatus === 'paid' ? totalAmount : 0,
       note: note || null,
