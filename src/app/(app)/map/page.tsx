@@ -41,9 +41,8 @@ export default function MapPage() {
   const allCount = customers.length
 
   return (
-    <div className="flex flex-col flex-1 h-[100dvh] lg:h-screen overflow-hidden">
-      <Header title="Bản đồ khách hàng" subtitle={`${withCoord} khách hàng có tọa độ`} />
-      <main className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
+    <div className="flex flex-col w-full overflow-hidden" style={{ height: '100vh', maxHeight: '100vh' }}>
+      <Header title="Bản đồ khách hàng" subtitle={`${withCoord} khách hàng có tọa độ`} />      <main className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
         {/* Toolbar */}
         <div className="card p-3 flex flex-col sm:flex-row gap-3 shrink-0">
           <div className="relative flex-1">
@@ -86,9 +85,9 @@ export default function MapPage() {
             <Link href="/customers" className="btn-primary text-sm">Đi đến danh sách khách hàng</Link>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 h-full">
             {/* Map */}
-            <div className="flex-1 rounded-xl overflow-hidden border border-slate-700/50 min-h-[400px] lg:min-h-0">
+            <div className="flex-1 rounded-xl overflow-hidden border border-slate-700/50 min-h-[400px] lg:min-h-0 h-full">
               <MapView
                 customers={filtered}
                 selectedId={selectedId}
