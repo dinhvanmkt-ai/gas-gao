@@ -6,9 +6,10 @@ import Header from '@/components/Header'
 import Link from 'next/link'
 import {
   ArrowLeft, Save, Loader2, ShoppingCart, Plus, Trash2, Search,
-  RefreshCw, Package, AlertTriangle, Calendar
+  RefreshCw, Package, AlertTriangle
 } from 'lucide-react'
 import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
+import DateInput from '@/components/DateInput'
 
 interface OrderItem {
   productId: string
@@ -482,14 +483,12 @@ export default function NewOrderPage() {
             {/* Order date — editable for backdating */}
             <div className="mt-4">
               <label className="label flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-orange-400" />
                 Ngày mua hàng
               </label>
-              <input
+              <DateInput
                 id="order-date"
-                type="date"
                 value={orderDate}
-                onChange={e => setOrderDate(e.target.value)}
+                onChange={setOrderDate}
                 className="input w-44"
               />
               {orderDate !== todayStr && (

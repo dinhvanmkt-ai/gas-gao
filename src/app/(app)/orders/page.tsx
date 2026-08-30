@@ -5,6 +5,7 @@ import Header from '@/components/Header'
 import { Search, Plus, ShoppingCart, Loader2, Download, Calendar } from 'lucide-react'
 import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import Link from 'next/link'
+import DateInput from '@/components/DateInput'
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   pending:   { label: 'Chờ xử lý', cls: 'badge-yellow' },
@@ -216,9 +217,9 @@ export default function OrdersPage() {
               ))}
               {timeFilter === 'custom' && (
                 <>
-                  <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input py-1 text-xs w-auto" />
+                  <DateInput value={customFrom} onChange={setCustomFrom} className="input py-1 text-xs w-36" />
                   <span className="text-slate-500 text-xs">→</span>
-                  <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input py-1 text-xs w-auto" />
+                  <DateInput value={customTo} onChange={setCustomTo} className="input py-1 text-xs w-36" />
                 </>
               )}
 

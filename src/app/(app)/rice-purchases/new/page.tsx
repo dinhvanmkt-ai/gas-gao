@@ -3,8 +3,9 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Link from 'next/link'
-import { ArrowLeft, Save, Loader2, Plus, Trash2, UserPlus, X, CheckCircle, Calendar, Wheat } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Plus, Trash2, UserPlus, X, CheckCircle, Wheat } from 'lucide-react'
 import { formatCurrency, getLocalDateString } from '@/lib/utils'
+import DateInput from '@/components/DateInput'
 
 interface RiceItem {
   riceProductId: string
@@ -170,8 +171,8 @@ export default function NewRicePurchasePage() {
                 </select>
               </div>
               <div>
-                <label className="label flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Ngày nhập</label>
-                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="input" />
+                <label className="label flex items-center gap-1.5">Ngày nhập</label>
+                <DateInput value={purchaseDate} onChange={setPurchaseDate} className="input" />
               </div>
             </div>
           </div>

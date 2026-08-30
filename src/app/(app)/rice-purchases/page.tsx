@@ -4,6 +4,7 @@ import Header from '@/components/Header'
 import Link from 'next/link'
 import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import { Plus, Trash2, Loader2, Wheat, Calendar, X, Pencil, CheckCircle, AlertTriangle } from 'lucide-react'
+import DateInput from '@/components/DateInput'
 
 interface RicePurchase {
   id: string
@@ -124,9 +125,9 @@ export default function RicePurchasesPage() {
           </div>
           {preset === 'custom' && (
             <div className="flex items-center gap-2">
-              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input py-1 text-xs w-auto" />
+              <DateInput value={customFrom} onChange={setCustomFrom} className="input py-1 text-xs w-36" />
               <span className="text-slate-500">→</span>
-              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input py-1 text-xs w-auto" />
+              <DateInput value={customTo} onChange={setCustomTo} className="input py-1 text-xs w-36" />
             </div>
           )}
           <div className="ml-auto">

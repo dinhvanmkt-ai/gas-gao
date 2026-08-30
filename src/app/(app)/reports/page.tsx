@@ -8,6 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts'
+import DateInput from '@/components/DateInput'
 
 const TABS = ['Doanh Thu', 'Lợi Nhuận', 'Công Nợ', 'Khách Hàng', 'Kho Hàng']
 const PIE_COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6']
@@ -181,18 +182,16 @@ export default function ReportsPage() {
             </div>
             {preset === 'custom' && (
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
+                <DateInput
                   value={customFrom}
-                  onChange={e => setCustomFrom(e.target.value)}
-                  className="input py-1 text-xs w-auto"
+                  onChange={setCustomFrom}
+                  className="input py-1 text-xs w-36"
                 />
                 <span className="text-slate-500">→</span>
-                <input
-                  type="date"
+                <DateInput
                   value={customTo}
-                  onChange={e => setCustomTo(e.target.value)}
-                  className="input py-1 text-xs w-auto"
+                  onChange={setCustomTo}
+                  className="input py-1 text-xs w-36"
                 />
               </div>
             )}

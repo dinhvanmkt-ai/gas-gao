@@ -6,9 +6,10 @@ import Header from '@/components/Header'
 import Link from 'next/link'
 import {
   ArrowLeft, Save, Loader2, Truck, Plus, Trash2,
-  UserPlus, Package, X, CheckCircle, FileText, Calendar
+  UserPlus, Package, X, CheckCircle, FileText
 } from 'lucide-react'
 import { formatCurrency, getLocalDateString } from '@/lib/utils'
+import DateInput from '@/components/DateInput'
 
 interface PurchaseItem {
   productId: string
@@ -233,8 +234,8 @@ export default function NewPurchasePage() {
                 </select>
               </div>
               <div>
-                <label className="label flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Ngày nhập</label>
-                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="input" />
+                <label className="label flex items-center gap-1.5">Ngày nhập</label>
+                <DateInput value={purchaseDate} onChange={setPurchaseDate} className="input" />
               </div>
             </div>
           </div>

@@ -5,6 +5,7 @@ import Header from '@/components/Header'
 import { Truck, Plus, Loader2, Trash2, AlertTriangle, Calendar, CheckCircle } from 'lucide-react'
 import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import Link from 'next/link'
+import DateInput from '@/components/DateInput'
 
 const PRESETS = [
   { key: 'month', label: 'Tháng này' },
@@ -114,9 +115,9 @@ export default function PurchasesPage() {
           </div>
           {preset === 'custom' && (
             <div className="flex items-center gap-2">
-              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input py-1 text-xs w-auto" />
+              <DateInput value={customFrom} onChange={setCustomFrom} className="input py-1 text-xs w-36" />
               <span className="text-slate-500">→</span>
-              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input py-1 text-xs w-auto" />
+              <DateInput value={customTo} onChange={setCustomTo} className="input py-1 text-xs w-36" />
             </div>
           )}
           <div className="ml-auto">
