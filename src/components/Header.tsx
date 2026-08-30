@@ -7,28 +7,32 @@ import { useSidebar } from '@/components/SidebarProvider'
 interface HeaderProps {
   title: string
   subtitle?: string
+  action?: React.ReactNode
 }
 
-export default function Header({ title, subtitle }: HeaderProps) {
+export default function Header({ title, subtitle, action }: HeaderProps) {
   const { data: session } = useSession()
   const { setIsOpen } = useSidebar()
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 gap-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <button 
           onClick={() => setIsOpen(true)}
-          className="p-2 -ml-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-lg md:hidden transition-colors"
+          className="p-2 -ml-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-lg md:hidden transition-colors shrink-0"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-base md:text-lg font-semibold text-slate-100 line-clamp-1">{title}</h1>
-          {subtitle && <p className="text-xs text-slate-500 hidden sm:block">{subtitle}</p>}
+        <div className="min-w-0">
+          <h1 className="text-base md:text-lg font-semibold text-slate-100 truncate">{title}</h1>
+          {subtitle && <p className="text-xs text-slate-500 hidden sm:block truncate">{subtitle}</p>}
         </div>
+        {action && (
+          <div className="ml-2 shrink-0">{action}</div>
+        )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         {/* Search hint */}
         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/60 border border-slate-700/50 rounded-lg text-xs text-slate-500 cursor-pointer hover:border-slate-600 transition-colors">
           <Search className="w-3.5 h-3.5" />
