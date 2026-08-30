@@ -150,9 +150,16 @@ export default function ProductsPage() {
     setDeleting(false)
   }
 
-  const margin = (p: Product) => {
+  const profit = (p: Product) => {
     if (!p.costPrice || p.costPrice === 0) return null
-    return ((p.priceRetail - p.costPrice) / p.priceRetail) * 100
+    return p.priceRetail - p.costPrice
+  }
+
+  function profitColor(profit: number) {
+    if (profit >= 50000) return 'text-emerald-400'
+    if (profit >= 20000) return 'text-yellow-400'
+    if (profit > 0) return 'text-orange-400'
+    return 'text-red-400'
   }
 
   return (
@@ -251,14 +258,14 @@ export default function ProductsPage() {
                     <th className="text-right">Giá vốn</th>
                     <th className="text-right">Giá bán lẻ</th>
                     <th className="text-right">Giá sỉ</th>
-                    <th className="text-right">Biên LN</th>
+                    <th className="text-right">Lợi Nhuận</th>
                     <th>Tồn kho</th>
                     <th className="w-16"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {tabFiltered.map(p => {
-                    const m = margin(p)
+                    const pf = profit(p)
                     const lowStock = p.stock <= p.minStock
                     return (
                       <tr key={p.id}>
@@ -287,8 +294,8 @@ export default function ProductsPage() {
                           {p.priceWhole ? formatCurrency(p.priceWhole) : <span className="text-slate-700">—</span>}
                         </td>
                         <td className="text-right">
-                          {m != null
-                            ? <span className={`font-semibold text-sm ${marginColor(m)}`}>{m.toFixed(1)}%</span>
+                          {pf != null
+                            ? <span className={`font-semibold text-sm ${profitColor(pf)}`}>{formatCurrency(pf)}</span>
                             : <span className="text-slate-700 text-xs">—</span>
                           }
                         </td>
