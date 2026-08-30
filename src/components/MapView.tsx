@@ -122,12 +122,12 @@ export default function MapView({ customers, selectedId, onSelect }: MapViewProp
   }, [customers])
 
   return (
-    <div className="w-full h-full min-h-[450px] relative bg-slate-900">
+    <div className="w-full h-full relative bg-slate-900 z-0">
       <MapContainer
         center={defaultCenter}
         zoom={13}
         scrollWheelZoom={true}
-        style={{ height: '100%', width: '100%', minHeight: '450px' }}
+        style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

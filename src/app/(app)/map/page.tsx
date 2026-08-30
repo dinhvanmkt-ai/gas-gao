@@ -41,9 +41,9 @@ export default function MapPage() {
   const allCount = customers.length
 
   return (
-    <div className="flex flex-col flex-1 h-full">
+    <div className="flex flex-col flex-1 h-[100dvh] lg:h-screen overflow-hidden">
       <Header title="Bản đồ khách hàng" subtitle={`${withCoord} khách hàng có tọa độ`} />
-      <main className="flex-1 flex flex-col p-4 gap-4 min-h-0">
+      <main className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
         {/* Toolbar */}
         <div className="card p-3 flex flex-col sm:flex-row gap-3 shrink-0">
           <div className="relative flex-1">
@@ -97,7 +97,7 @@ export default function MapPage() {
             </div>
 
             {/* Sidebar list */}
-            <div className="w-full lg:w-72 shrink-0 flex flex-col gap-2 overflow-y-auto max-h-[400px] lg:max-h-none">
+            <div className="w-full lg:w-72 shrink-0 flex flex-col gap-2 overflow-y-auto max-h-[400px] lg:max-h-full h-full pr-1">
               {filtered.length === 0 ? (
                 <p className="text-slate-500 text-sm text-center py-8">Không tìm thấy</p>
               ) : (
