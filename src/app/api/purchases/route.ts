@@ -11,7 +11,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const fromParam = searchParams.get('from')
   const toParam = searchParams.get('to')
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = {
+    purchaseNo: { startsWith: 'NH' }
+  }
   if (fromParam || toParam) {
     where.purchaseDate = {
       ...(fromParam ? { gte: new Date(fromParam) } : {}),
