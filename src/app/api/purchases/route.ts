@@ -59,7 +59,11 @@ export async function POST(req: Request) {
   // ─────────────────────────────────────────────────────────────────
 
   // Generate purchase number — use max existing number to avoid duplicates after deletions
-  const lastPurchase = await prisma.purchase.findFirst({ orderBy: { purchaseNo: 'desc' }, select: { purchaseNo: true } })
+  const lastPurchase = await prisma.purchase.findFirst({ 
+    where: { purchaseNo: { startsWith: 'NH' } },
+    orderBy: { purchaseNo: 'desc' }, 
+    select: { purchaseNo: true } 
+  })
   const nextPNum = lastPurchase ? (parseInt(lastPurchase.purchaseNo.replace('NH', '')) || 0) + 1 : 1
   const purchaseNo = `NH${String(nextPNum).padStart(5, '0')}`
 
