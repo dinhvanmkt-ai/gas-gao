@@ -15,9 +15,9 @@ export async function GET(req: Request) {
   const customers = await prisma.customer.findMany({
     where: q ? {
       OR: [
-        { name: { contains: q } },
-        { phone: { contains: q } },
-        { address: { contains: q } },
+        { name: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+        { address: { contains: q, mode: 'insensitive' } },
       ],
     } : undefined,
     orderBy: sort === 'urgency'

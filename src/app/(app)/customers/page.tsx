@@ -10,18 +10,25 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
   const [sort, setSort] = useState('urgency')
   const [showAdd, setShowAdd] = useState(false)
 
-  async function load() {
+  async function load(searchQ: string) {
     setLoading(true)
-    const res = await fetch(`/api/customers?q=${encodeURIComponent(q)}&sort=${sort}`)
+    const res = await fetch(`/api/customers?q=${encodeURIComponent(searchQ)}&sort=${sort}`)
     const data = await res.json()
     setCustomers(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [q, sort])
+  // Debounce: chờ 300ms sau khi ngừng gõ mới gọi API
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300)
+    return () => clearTimeout(t)
+  }, [q])
+
+  useEffect(() => { load(debouncedQ) }, [debouncedQ, sort])
 
   return (
     <div className="flex flex-col flex-1">
