@@ -161,7 +161,8 @@ export async function POST(req: Request) {
       paidAmount: paid,
       debtAmount,
       note,
-      status: 'pending',
+      status: 'completed',
+      deliveredAt: orderCreatedAt, // ← tự động hoàn tất ngay khi tạo
       createdAt: orderCreatedAt,   // ← áp dụng ngày do người dùng chọn
       cylinderTxType: cylinderTxType ?? null,
       cylinderDeposit: depositInOrder,
