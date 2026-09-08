@@ -4,11 +4,16 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const suppliers = await prisma.supplier.findMany({ orderBy: { name: 'asc' } })
+  const { searchParams } = new URL(req.url)
+  const typeParam = searchParams.get('type')
+  const where: Record<string, unknown> = {}
+  if (typeParam) where.type = typeParam
+
+  const suppliers = await prisma.supplier.findMany({ where, orderBy: { name: 'asc' } })
   return NextResponse.json(suppliers)
 }
 

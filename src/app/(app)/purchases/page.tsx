@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Header from '@/components/Header'
-import { Truck, Plus, Loader2, Trash2, AlertTriangle, Calendar, CheckCircle } from 'lucide-react'
+import { Truck, Plus, Loader2, Trash2, AlertTriangle, Calendar, CheckCircle, Package } from 'lucide-react'
 import { formatCurrency, formatDate, getLocalDateString } from '@/lib/utils'
 import Link from 'next/link'
 import DateInput from '@/components/DateInput'
@@ -47,16 +47,26 @@ export default function PurchasesPage() {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
 
+  // Supplier filter
+  const [selectedSupplier, setSelectedSupplier] = useState('')
+  const [suppliers, setSuppliers] = useState<any[]>([])
+
+  // Load danh sách NCC gas một lần khi mount
+  useEffect(() => {
+    fetch('/api/suppliers?type=gas').then(r => r.ok ? r.json() : []).then(setSuppliers).catch(() => {})
+  }, [])
+
   async function load() {
     setLoading(true)
     const range = getRange(preset, customFrom, customTo)
     const params = new URLSearchParams({ from: range.from, to: range.to })
+    if (selectedSupplier) params.set('supplierId', selectedSupplier)
     const d = await fetch(`/api/purchases?${params}`).then(r => r.ok ? r.json() : []).catch(() => [])
     setPurchases(Array.isArray(d) ? d : [])
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [preset, customFrom, customTo])
+  useEffect(() => { load() }, [preset, customFrom, customTo, selectedSupplier])
 
   async function handleDelete(id: string) {
     setDeleting(true)
@@ -88,6 +98,10 @@ export default function PurchasesPage() {
     purchases.filter((p: any) => p.paymentStatus === 'owe').reduce((s: number, p: any) => s + p.totalAmount, 0),
     [purchases]
   )
+  const totalCylinders = useMemo(() =>
+    purchases.reduce((s: number, p: any) => s + (p.cylinderQty ?? 0), 0),
+    [purchases]
+  )
 
   const delPurchase = purchases.find(p => p.id === deleteId)
 
@@ -96,8 +110,8 @@ export default function PurchasesPage() {
       <Header title="Nhập Hàng (Gas)" subtitle="Quản lý phiếu nhập hàng gas và nhà cung cấp" />
       <main className="flex-1 p-6 space-y-5">
 
-        {/* Date Filter + New Button */}
-        <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {/* Date Filter + Supplier Filter + New Button */}
+        <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <Calendar className="w-4 h-4" /><span className="font-medium">Kỳ:</span>
           </div>
@@ -120,6 +134,20 @@ export default function PurchasesPage() {
               <DateInput value={customTo} onChange={setCustomTo} className="input py-1 text-xs w-36" />
             </div>
           )}
+          {/* Supplier filter */}
+          <div className="flex items-center gap-2">
+            <Truck className="w-4 h-4 text-slate-400 shrink-0" />
+            <select
+              value={selectedSupplier}
+              onChange={e => setSelectedSupplier(e.target.value)}
+              className="input py-1 text-xs min-w-[140px]"
+            >
+              <option value="">Tất cả NCC</option>
+              {suppliers.map((s: any) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="ml-auto">
             <Link href="/purchases/new" className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2">
               <Plus className="w-4 h-4" /> Phiếu nhập
@@ -128,7 +156,7 @@ export default function PurchasesPage() {
         </div>
 
         {/* KPI */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <div className="card p-4">
             <p className="text-xs text-slate-500 mb-1">Tổng phiếu kỳ này</p>
             <p className="text-2xl font-bold">{purchases.length}</p>
@@ -136,6 +164,13 @@ export default function PurchasesPage() {
           <div className="card p-4 kpi-blue">
             <p className="text-xs text-slate-500 mb-1">Tổng chi kỳ này</p>
             <p className="text-xl font-bold text-blue-400">{formatCurrency(totalAmount)}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-slate-500 mb-1">Tổng bình nhập</p>
+            <div className="flex items-end gap-1.5">
+              <p className="text-2xl font-bold text-purple-400">{totalCylinders}</p>
+              <span className="text-sm text-slate-500 mb-0.5">bình</span>
+            </div>
           </div>
           <div className="card p-4 kpi-green">
             <p className="text-xs text-slate-500 mb-1">Đã thanh toán NCC</p>

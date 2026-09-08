@@ -21,6 +21,11 @@ export async function GET(req: Request) {
     }
   }
 
+  const supplierIdParam = searchParams.get('supplierId')
+  if (supplierIdParam) {
+    where.supplierId = supplierIdParam
+  }
+
   const purchases = await prisma.purchase.findMany({
     where,
     orderBy: { purchaseDate: 'desc' }, // Fix: sort đúng theo ngày nhập, không phải ngày tạo
