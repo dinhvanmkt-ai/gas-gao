@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -64,16 +64,28 @@ function getMarkerColor(c: CustomerMapItem): string {
   return '#10b981'
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Label display constants ──────────────────────────────────────────────────
+const FONT_SIZE = 11
 const LABEL_PAD_X = 7
 const LABEL_PAD_Y = 3
-const FONT_SIZE = 11
-const LABEL_H = FONT_SIZE + LABEL_PAD_Y * 2
-const INITIAL_OFFSET_Y = 40   // px above marker tip
-const COLLISION_ITERS = 15
+const LABEL_H = FONT_SIZE + LABEL_PAD_Y * 2   // 17px
+const PIN_OFFSET_Y = 8    // gap between label bottom and marker tip (px)
 const LABEL_MIN_ZOOM = 14
 
+// Priority score — higher = shown first when space is limited
+function getPriority(c: CustomerMapItem): number {
+  if (c.urgencyScore >= 50) return 4
+  if (c.debtBalance > 0) return 3
+  if (c.gasCylinderQty > 0) return 2
+  return 1
+}
+
 // ─── SVG Label Overlay ────────────────────────────────────────────────────────
+// Strategy:
+//   1. Only process markers currently inside the map viewport (bounds check)
+//   2. Label is anchored directly above its own marker — never pushed away
+//   3. If labels overlap by >50% width → hide the lower-priority one
+//   4. Selected label always visible, always rendered last (on top)
 function LabelOverlay({
   customers,
   selectedId,
@@ -83,139 +95,157 @@ function LabelOverlay({
 }) {
   const map = useMap()
   const [tick, setTick] = useState(0)
-  const showLabelsRef = useRef(map.getZoom() >= LABEL_MIN_ZOOM)
 
   const forceUpdate = useCallback(() => setTick(t => t + 1), [])
 
   useEffect(() => {
-    const onZoom = () => {
-      showLabelsRef.current = map.getZoom() >= LABEL_MIN_ZOOM
-      forceUpdate()
-    }
-    map.on('zoom', onZoom)
+    map.on('zoom', forceUpdate)
     map.on('move', forceUpdate)
     map.on('zoomend', forceUpdate)
     map.on('moveend', forceUpdate)
     return () => {
-      map.off('zoom', onZoom)
+      map.off('zoom', forceUpdate)
       map.off('move', forceUpdate)
       map.off('zoomend', forceUpdate)
       map.off('moveend', forceUpdate)
     }
   }, [map, forceUpdate])
 
-  // Approximate text width (Inter 11px bold ≈ 7px/char)
-  const textWidth = (text: string) => text.length * 7 + LABEL_PAD_X * 2
-
-  // Build SVG on every tick
   const svgNodes = useMemo(() => {
-    const showLabels = showLabelsRef.current
-    if (!showLabels && !selectedId) return null
+    const zoom = map.getZoom()
+    // Show labels at zoom >= 14, or always show selected
+    if (zoom < LABEL_MIN_ZOOM && !selectedId) return null
 
-    const container = map.getContainer()
-    const W = container.clientWidth
-    const H = container.clientHeight
+    const bounds = map.getBounds()
 
-    // --- Step 1: Compute initial label positions ---
-    type LabelPos = {
-      id: string; name: string; color: string; isSelected: boolean
-      mx: number; my: number          // marker tip pixel
-      lx: number; ly: number          // label top-left (mutable)
+    // ── Step 1: Filter to viewport only ──────────────────────────────────────
+    // Always include selectedId even if off-screen (flyTo will bring it in view)
+    const viewport = customers.filter(c => {
+      if (c.id === selectedId) return true
+      if (zoom < LABEL_MIN_ZOOM) return false
+      return bounds.contains([c.lat, c.lng])
+    })
+
+    if (viewport.length === 0) return null
+
+    // ── Step 2: Sort by priority (highest first; selected always first) ───────
+    const sorted = [...viewport].sort((a, b) => {
+      if (a.id === selectedId) return -1
+      if (b.id === selectedId) return 1
+      return getPriority(b) - getPriority(a)
+    })
+
+    // ── Step 3: Compute pixel positions (label anchored above its own marker) ─
+    type LabelEntry = {
+      c: CustomerMapItem
+      isSelected: boolean
+      mx: number; my: number   // marker tip (container pixel)
+      lx: number; ly: number   // label top-left
       lw: number; lh: number
     }
 
-    const labels: LabelPos[] = []
-    for (const c of customers) {
+    const approxTextW = (text: string) => text.length * 7 + LABEL_PAD_X * 2
+
+    const entries: LabelEntry[] = []
+    for (const c of sorted) {
       const isSelected = c.id === selectedId
-      if (!showLabels && !isSelected) continue
       try {
         const pt = map.latLngToContainerPoint(L.latLng(c.lat, c.lng))
-        const lw = textWidth(c.name)
+        const lw = approxTextW(c.name)
         const lh = isSelected ? LABEL_H + 2 : LABEL_H
-        labels.push({
-          id: c.id, name: c.name,
-          color: getMarkerColor(c), isSelected,
+        entries.push({
+          c, isSelected,
           mx: pt.x, my: pt.y,
           lx: pt.x - lw / 2,
-          ly: pt.y - INITIAL_OFFSET_Y - lh,
+          ly: pt.y - PIN_OFFSET_Y - lh,   // directly above marker
           lw, lh,
         })
-      } catch { /* skip out-of-range points */ }
+      } catch { /* skip if conversion fails */ }
     }
 
-    // --- Step 2: Collision avoidance ---
-    for (let iter = 0; iter < COLLISION_ITERS; iter++) {
-      let moved = false
-      for (let i = 0; i < labels.length; i++) {
-        for (let j = i + 1; j < labels.length; j++) {
-          const a = labels[i], b = labels[j]
-          const ox = Math.min(a.lx + a.lw, b.lx + b.lw) - Math.max(a.lx, b.lx)
-          const oy = Math.min(a.ly + a.lh, b.ly + b.lh) - Math.max(a.ly, b.ly)
-          if (ox > 0 && oy > 0) {
-            moved = true
-            if (ox <= oy) {
-              const push = ox / 2 + 1
-              const aLeft = a.lx < b.lx
-              a.lx += aLeft ? -push : push
-              b.lx += aLeft ? push : -push
-            } else {
-              const push = oy / 2 + 1
-              const aUp = a.ly < b.ly
-              a.ly += aUp ? -push : push
-              b.ly += aUp ? push : -push
-            }
-          }
-        }
+    // ── Step 4: Overlap visibility — hide, don't push ─────────────────────────
+    // We iterate in priority order. Each entry occupies a "slot".
+    // If a new entry overlaps a slot by > 50% of its width → skip it.
+    // Selected is always kept (we added it first).
+    const slots: Array<{ x1: number; y1: number; x2: number; y2: number }> = []
+    const visible: LabelEntry[] = []
+
+    for (const e of entries) {
+      if (e.isSelected) {
+        // Selected always visible — add slot, render it
+        slots.push({ x1: e.lx, y1: e.ly, x2: e.lx + e.lw, y2: e.ly + e.lh })
+        visible.push(e)
+        continue
       }
-      if (!moved) break
+
+      const overlapFraction = (slot: (typeof slots)[0]) => {
+        const ox = Math.min(e.lx + e.lw, slot.x2) - Math.max(e.lx, slot.x1)
+        const oy = Math.min(e.ly + e.lh, slot.y2) - Math.max(e.ly, slot.y1)
+        if (ox <= 0 || oy <= 0) return 0
+        // fraction of this label's width that is covered
+        return ox / e.lw
+      }
+
+      const blocked = slots.some(s => overlapFraction(s) > 0.5)
+      if (!blocked) {
+        slots.push({ x1: e.lx, y1: e.ly, x2: e.lx + e.lw, y2: e.ly + e.lh })
+        visible.push(e)
+      }
     }
 
-    // --- Step 3: Clamp to map container bounds ---
-    const M = 4
-    for (const l of labels) {
-      l.lx = Math.max(M, Math.min(W - l.lw - M, l.lx))
-      l.ly = Math.max(M, Math.min(H - l.lh - M, l.ly))
-    }
+    // ── Step 5: Build SVG nodes ───────────────────────────────────────────────
+    // Draw order: lines → rects → texts (selected on top via array ordering)
+    // Sort visible: non-selected first so selected renders on top
+    visible.sort((a, b) => (a.isSelected ? 1 : 0) - (b.isSelected ? 1 : 0))
 
-    // --- Step 4: Build SVG nodes ---
     const lines: React.ReactNode[] = []
     const rects: React.ReactNode[] = []
     const texts: React.ReactNode[] = []
 
-    for (const l of labels) {
-      const cx = l.lx + l.lw / 2
-      const bottom = l.ly + l.lh
+    for (const e of visible) {
+      const cx = e.lx + e.lw / 2
+      const labelBottom = e.ly + e.lh
+      const color = getMarkerColor(e.c)
 
+      // Leader line: label bottom-center → marker tip
       lines.push(
-        <line key={`l-${l.id}`}
-          x1={cx} y1={bottom} x2={l.mx} y2={l.my}
+        <line key={`l-${e.c.id}`}
+          x1={cx} y1={labelBottom}
+          x2={e.mx} y2={e.my}
           stroke="white"
-          strokeWidth={l.isSelected ? 2 : 1.5}
-          strokeOpacity={0.88}
+          strokeWidth={e.isSelected ? 2 : 1.5}
+          strokeOpacity={0.9}
           filter="url(#ll-shadow)"
         />
       )
+
+      // Label background
       rects.push(
-        <rect key={`r-${l.id}`}
-          x={l.lx} y={l.ly} width={l.lw} height={l.lh}
+        <rect key={`r-${e.c.id}`}
+          x={e.lx} y={e.ly}
+          width={e.lw} height={e.lh}
           rx={4} ry={4}
-          fill="white" fillOpacity={l.isSelected ? 0.97 : 0.93}
-          stroke={l.isSelected ? l.color : '#cbd5e1'}
-          strokeWidth={l.isSelected ? 1.5 : 0.8}
+          fill="white"
+          fillOpacity={e.isSelected ? 0.97 : 0.92}
+          stroke={e.isSelected ? color : '#cbd5e1'}
+          strokeWidth={e.isSelected ? 1.5 : 0.8}
           filter="url(#ll-shadow)"
         />
       )
+
+      // Label text
       texts.push(
-        <text key={`t-${l.id}`}
-          x={cx} y={l.ly + l.lh / 2 + FONT_SIZE * 0.36}
+        <text key={`t-${e.c.id}`}
+          x={cx}
+          y={e.ly + e.lh / 2 + FONT_SIZE * 0.36}
           textAnchor="middle"
-          fontSize={l.isSelected ? FONT_SIZE + 1 : FONT_SIZE}
+          fontSize={e.isSelected ? FONT_SIZE + 1 : FONT_SIZE}
           fontWeight="700"
           fontFamily="Inter, system-ui, sans-serif"
-          fill={l.isSelected ? l.color : '#1e293b'}
+          fill={e.isSelected ? color : '#1e293b'}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
-          {l.name}
+          {e.c.name}
         </text>
       )
     }
