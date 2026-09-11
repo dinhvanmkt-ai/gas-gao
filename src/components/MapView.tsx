@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -29,22 +29,22 @@ interface MapViewProps {
   onSelect: (id: string) => void
 }
 
+// ─── Marker icon: pin only (no HTML label) ────────────────────────────────────
 function getMarkerIcon(c: CustomerMapItem, isSelected: boolean) {
-  let color = '#10b981' // green default
-  if (c.debtBalance > 0) color = '#eab308' // yellow for debt
-  if (c.urgencyScore >= 50) color = '#ef4444' // red for urgent gas
-  if (c.gasCylinderQty > 0 && color === '#10b981') color = '#3b82f6' // blue for cylinder hold
+  let color = '#10b981'
+  if (c.debtBalance > 0) color = '#eab308'
+  if (c.urgencyScore >= 50) color = '#ef4444'
+  if (c.gasCylinderQty > 0 && color === '#10b981') color = '#3b82f6'
 
   const size = isSelected ? 36 : 28
 
   const html = `
-    <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: ${size}px; height: ${size * 1.3}px;">
-      <svg width="${size}" height="${size * 1.3}" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
-        <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 24 12 24s12-15.5 12-24c0-6.627-5.373-12-12-12zm0 17.5c-3.038 0-5.5-2.462-5.5-5.5S8.962 6.5 12 6.5s5.5 2.462 5.5 5.5-2.462 5.5-5.5 5.5z" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size * 1.3}px;">
+      <svg width="${size}" height="${size * 1.3}" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg"
+           style="filter:drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
+        <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 24 12 24s12-15.5 12-24c0-6.627-5.373-12-12-12zm0 17.5c-3.038 0-5.5-2.462-5.5-5.5S8.962 6.5 12 6.5s5.5 2.462 5.5 5.5-2.462 5.5-5.5 5.5z"
+              fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
       </svg>
-      <div class="custom-marker-label ${isSelected ? 'selected' : ''}">
-        ${c.name}
-      </div>
     </div>
   `
 
@@ -57,33 +57,193 @@ function getMarkerIcon(c: CustomerMapItem, isSelected: boolean) {
   })
 }
 
-// MapEvents component to add class to map container based on zoom level
-function MapEvents() {
-  const map = useMap()
-  
-  useEffect(() => {
-    const updateZoomClass = () => {
-      const zoom = map.getZoom()
-      if (zoom >= 14) {
-        map.getContainer().classList.add('show-marker-labels')
-      } else {
-        map.getContainer().classList.remove('show-marker-labels')
-      }
-    }
-    
-    // Initial call
-    updateZoomClass()
-    
-    // Listen to zoom changes
-    map.on('zoomend', updateZoomClass)
-    return () => {
-      map.off('zoomend', updateZoomClass)
-    }
-  }, [map])
-  
-  return null
+function getMarkerColor(c: CustomerMapItem): string {
+  if (c.urgencyScore >= 50) return '#ef4444'
+  if (c.debtBalance > 0) return '#eab308'
+  if (c.gasCylinderQty > 0) return '#3b82f6'
+  return '#10b981'
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const LABEL_PAD_X = 7
+const LABEL_PAD_Y = 3
+const FONT_SIZE = 11
+const LABEL_H = FONT_SIZE + LABEL_PAD_Y * 2
+const INITIAL_OFFSET_Y = 40   // px above marker tip
+const COLLISION_ITERS = 15
+const LABEL_MIN_ZOOM = 14
+
+// ─── SVG Label Overlay ────────────────────────────────────────────────────────
+function LabelOverlay({
+  customers,
+  selectedId,
+}: {
+  customers: CustomerMapItem[]
+  selectedId: string | null
+}) {
+  const map = useMap()
+  const [tick, setTick] = useState(0)
+  const showLabelsRef = useRef(map.getZoom() >= LABEL_MIN_ZOOM)
+
+  const forceUpdate = useCallback(() => setTick(t => t + 1), [])
+
+  useEffect(() => {
+    const onZoom = () => {
+      showLabelsRef.current = map.getZoom() >= LABEL_MIN_ZOOM
+      forceUpdate()
+    }
+    map.on('zoom', onZoom)
+    map.on('move', forceUpdate)
+    map.on('zoomend', forceUpdate)
+    map.on('moveend', forceUpdate)
+    return () => {
+      map.off('zoom', onZoom)
+      map.off('move', forceUpdate)
+      map.off('zoomend', forceUpdate)
+      map.off('moveend', forceUpdate)
+    }
+  }, [map, forceUpdate])
+
+  // Approximate text width (Inter 11px bold ≈ 7px/char)
+  const textWidth = (text: string) => text.length * 7 + LABEL_PAD_X * 2
+
+  // Build SVG on every tick
+  const svgNodes = useMemo(() => {
+    const showLabels = showLabelsRef.current
+    if (!showLabels && !selectedId) return null
+
+    const container = map.getContainer()
+    const W = container.clientWidth
+    const H = container.clientHeight
+
+    // --- Step 1: Compute initial label positions ---
+    type LabelPos = {
+      id: string; name: string; color: string; isSelected: boolean
+      mx: number; my: number          // marker tip pixel
+      lx: number; ly: number          // label top-left (mutable)
+      lw: number; lh: number
+    }
+
+    const labels: LabelPos[] = []
+    for (const c of customers) {
+      const isSelected = c.id === selectedId
+      if (!showLabels && !isSelected) continue
+      try {
+        const pt = map.latLngToContainerPoint(L.latLng(c.lat, c.lng))
+        const lw = textWidth(c.name)
+        const lh = isSelected ? LABEL_H + 2 : LABEL_H
+        labels.push({
+          id: c.id, name: c.name,
+          color: getMarkerColor(c), isSelected,
+          mx: pt.x, my: pt.y,
+          lx: pt.x - lw / 2,
+          ly: pt.y - INITIAL_OFFSET_Y - lh,
+          lw, lh,
+        })
+      } catch { /* skip out-of-range points */ }
+    }
+
+    // --- Step 2: Collision avoidance ---
+    for (let iter = 0; iter < COLLISION_ITERS; iter++) {
+      let moved = false
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) {
+          const a = labels[i], b = labels[j]
+          const ox = Math.min(a.lx + a.lw, b.lx + b.lw) - Math.max(a.lx, b.lx)
+          const oy = Math.min(a.ly + a.lh, b.ly + b.lh) - Math.max(a.ly, b.ly)
+          if (ox > 0 && oy > 0) {
+            moved = true
+            if (ox <= oy) {
+              const push = ox / 2 + 1
+              const aLeft = a.lx < b.lx
+              a.lx += aLeft ? -push : push
+              b.lx += aLeft ? push : -push
+            } else {
+              const push = oy / 2 + 1
+              const aUp = a.ly < b.ly
+              a.ly += aUp ? -push : push
+              b.ly += aUp ? push : -push
+            }
+          }
+        }
+      }
+      if (!moved) break
+    }
+
+    // --- Step 3: Clamp to map container bounds ---
+    const M = 4
+    for (const l of labels) {
+      l.lx = Math.max(M, Math.min(W - l.lw - M, l.lx))
+      l.ly = Math.max(M, Math.min(H - l.lh - M, l.ly))
+    }
+
+    // --- Step 4: Build SVG nodes ---
+    const lines: React.ReactNode[] = []
+    const rects: React.ReactNode[] = []
+    const texts: React.ReactNode[] = []
+
+    for (const l of labels) {
+      const cx = l.lx + l.lw / 2
+      const bottom = l.ly + l.lh
+
+      lines.push(
+        <line key={`l-${l.id}`}
+          x1={cx} y1={bottom} x2={l.mx} y2={l.my}
+          stroke="white"
+          strokeWidth={l.isSelected ? 2 : 1.5}
+          strokeOpacity={0.88}
+          filter="url(#ll-shadow)"
+        />
+      )
+      rects.push(
+        <rect key={`r-${l.id}`}
+          x={l.lx} y={l.ly} width={l.lw} height={l.lh}
+          rx={4} ry={4}
+          fill="white" fillOpacity={l.isSelected ? 0.97 : 0.93}
+          stroke={l.isSelected ? l.color : '#cbd5e1'}
+          strokeWidth={l.isSelected ? 1.5 : 0.8}
+          filter="url(#ll-shadow)"
+        />
+      )
+      texts.push(
+        <text key={`t-${l.id}`}
+          x={cx} y={l.ly + l.lh / 2 + FONT_SIZE * 0.36}
+          textAnchor="middle"
+          fontSize={l.isSelected ? FONT_SIZE + 1 : FONT_SIZE}
+          fontWeight="700"
+          fontFamily="Inter, system-ui, sans-serif"
+          fill={l.isSelected ? l.color : '#1e293b'}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {l.name}
+        </text>
+      )
+    }
+
+    return { lines, rects, texts }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, customers, selectedId, map])
+
+  if (!svgNodes) return null
+  const { lines, rects, texts } = svgNodes
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 500 }}>
+      <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
+        <defs>
+          <filter id="ll-shadow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="rgba(0,0,0,0.55)" />
+          </filter>
+        </defs>
+        {lines}
+        {rects}
+        {texts}
+      </svg>
+    </div>
+  )
+}
+
+// ─── Map controller ───────────────────────────────────────────────────────────
 function MapController({
   customers,
   selectedCustomer,
@@ -105,20 +265,20 @@ function MapController({
   return null
 }
 
+// ─── Main export ──────────────────────────────────────────────────────────────
 export default function MapView({ customers, selectedId, onSelect }: MapViewProps) {
   const selectedCustomer = useMemo(
     () => customers.find(c => c.id === selectedId),
     [customers, selectedId]
   )
 
-  // Center default (Vietnam or center of points)
   const defaultCenter: [number, number] = useMemo(() => {
     if (customers.length > 0) {
       const avgLat = customers.reduce((s, c) => s + c.lat, 0) / customers.length
       const avgLng = customers.reduce((s, c) => s + c.lng, 0) / customers.length
       return [avgLat, avgLng]
     }
-    return [10.762622, 106.660172] // Default TP.HCM / South VN
+    return [10.762622, 106.660172]
   }, [customers])
 
   return (
@@ -135,7 +295,9 @@ export default function MapView({ customers, selectedId, onSelect }: MapViewProp
         />
 
         <MapController customers={customers} selectedCustomer={selectedCustomer} />
-        <MapEvents />
+
+        {/* Floating label + leader line SVG overlay */}
+        <LabelOverlay customers={customers} selectedId={selectedId} />
 
         {customers.map(c => {
           const isSelected = c.id === selectedId
@@ -146,9 +308,7 @@ export default function MapView({ customers, selectedId, onSelect }: MapViewProp
               key={c.id}
               position={[c.lat, c.lng]}
               icon={icon}
-              eventHandlers={{
-                click: () => onSelect(c.id),
-              }}
+              eventHandlers={{ click: () => onSelect(c.id) }}
             >
               <Popup className="customer-map-popup">
                 <div className="p-1 min-w-[200px]">

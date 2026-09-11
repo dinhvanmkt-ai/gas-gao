@@ -85,6 +85,12 @@ export async function updateCustomerPrediction(customerId: string) {
     )
     if (avgDays !== null) customerUpdate.gasAvgDays = avgDays
     if (predictedDate !== null) customerUpdate.gasPredictedDate = predictedDate
+  } else {
+    // Fix #1: Reset về null khi không còn đơn gas nào
+    customerUpdate.gasPredictedDate = null
+    customerUpdate.gasAvgDays = null
+    customerUpdate.gasLastBuyDate = null
+    customerUpdate.gasLastQty = null
   }
 
   // ── GẠO ──────────────────────────────────────────────────────────
@@ -102,20 +108,24 @@ export async function updateCustomerPrediction(customerId: string) {
     )
     if (avgDays !== null) customerUpdate.riceAvgDays = avgDays
     if (predictedDate !== null) customerUpdate.ricePredictedDate = predictedDate
+  } else {
+    // Fix #1: Reset về null khi không còn đơn gạo nào
+    customerUpdate.ricePredictedDate = null
+    customerUpdate.riceAvgDays = null
+    customerUpdate.riceLastBuyDate = null
+    customerUpdate.riceLastQty = null
   }
 
   // ── URGENCY SCORE ─────────────────────────────────────────────────
+  // Fix #4: luôn tính lại urgencyScore dù có hay không có đơn
   const gasPred = (customerUpdate.gasPredictedDate instanceof Date ? customerUpdate.gasPredictedDate : null) as Date | null
   const ricePred = (customerUpdate.ricePredictedDate instanceof Date ? customerUpdate.ricePredictedDate : null) as Date | null
   const gasScore = calcUrgencyScore(gasPred)
   const riceScore = calcUrgencyScore(ricePred)
   customerUpdate.urgencyScore = Math.max(gasScore, riceScore)
 
-  if (Object.keys(customerUpdate).length > 0) {
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: customerUpdate,
-    })
-  }
+  await prisma.customer.update({
+    where: { id: customerId },
+    data: customerUpdate,
+  })
 }
-

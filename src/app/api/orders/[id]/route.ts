@@ -67,6 +67,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     include: { customer: true, items: { include: { product: true } } },
   })
 
+  // Recalculate prediction in case payment/status affects urgency
+  try { await updateCustomerPrediction(order.customerId) } catch {}
+
   return NextResponse.json(order)
 }
 

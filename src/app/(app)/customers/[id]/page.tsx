@@ -241,10 +241,10 @@ export default function CustomerDetailPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><p className="text-xs text-slate-500 mb-0.5">Chu kỳ trung bình</p><p className="font-semibold">{customer.gasAvgDays ? `${Math.round(customer.gasAvgDays)} ngày` : '—'}</p></div>
                 <div><p className="text-xs text-slate-500 mb-0.5">Lần mua gần nhất</p><p className="font-semibold">{formatDate(customer.gasLastBuyDate)}</p></div>
-                <div><p className="text-xs text-slate-500 mb-0.5">Lượng mua</p><p className="font-semibold">{customer.gasLastQty ? `${customer.gasLastQty} kg` : '—'}</p></div>
+                <div><p className="text-xs text-slate-500 mb-0.5">Lượng mua</p><p className="font-semibold">{customer.gasLastQty ? `${customer.gasLastQty} bình` : '—'}</p></div>
                 <div><p className="text-xs text-slate-500 mb-0.5">Dự đoán mua</p>
                   <p className={`font-semibold ${gasDays !== null && gasDays <= 0 ? 'text-red-400' : gasDays !== null && gasDays <= 3 ? 'text-yellow-400' : ''}`}>
-                    {customer.gasPredictedDate ? formatDate(customer.gasPredictedDate) : '—'}
+                    {customer.gasPredictedDate ? formatDate(customer.gasPredictedDate) : <span className="text-xs text-slate-500 italic">Cần ít nhất 2 đơn gas để dự đoán</span>}
                     {gasDays !== null && <span className="text-xs ml-1">({gasDays <= 0 ? 'Quá hạn' : `${gasDays} ngày`})</span>}
                   </p>
                 </div>

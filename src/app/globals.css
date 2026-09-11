@@ -147,32 +147,13 @@
   color: #f1f5f9 !important;
 }
 
-/* Custom Map Marker Labels */
+/* Custom Map Marker Pin */
 .custom-pin-container {
   background: transparent !important;
   border: none !important;
 }
-.custom-marker-label {
-  display: none; /* hidden by default */
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ffffff;
-  color: #1e293b;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-  margin-top: 4px;
-  border: 1px solid #cbd5e1;
-  pointer-events: none;
-  z-index: 1000;
-}
-/* Show labels when zoomed in or when selected */
-.show-marker-labels .custom-marker-label,
-.custom-marker-label.selected {
-  display: block;
+
+/* SVG Label Overlay sits above Leaflet panes */
+.leaflet-container {
+  position: relative;
 }
