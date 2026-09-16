@@ -51,9 +51,9 @@ export default function PurchasesPage() {
   const [selectedSupplier, setSelectedSupplier] = useState('')
   const [suppliers, setSuppliers] = useState<any[]>([])
 
-  // Load danh sách NCC gas một lần khi mount
+  // Load danh sách NCC (tất cả, không lọc type vì NCC có thể nhập nhiều loại hàng)
   useEffect(() => {
-    fetch('/api/suppliers?type=gas').then(r => r.ok ? r.json() : []).then(setSuppliers).catch(() => {})
+    fetch('/api/suppliers').then(r => r.ok ? r.json() : []).then(setSuppliers).catch(() => {})
   }, [])
 
   async function load() {

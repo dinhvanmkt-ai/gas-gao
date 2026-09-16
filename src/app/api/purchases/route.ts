@@ -15,9 +15,11 @@ export async function GET(req: Request) {
     purchaseNo: { startsWith: 'NH' }
   }
   if (fromParam || toParam) {
+    // Treat date params as Vietnam local dates (UTC+7)
+    // "2026-09-01" → start of that day in VN = "2026-08-31T17:00:00.000Z"
     where.purchaseDate = {
-      ...(fromParam ? { gte: new Date(fromParam) } : {}),
-      ...(toParam ? { lte: new Date(toParam + 'T23:59:59.999') } : {}),
+      ...(fromParam ? { gte: new Date(fromParam + 'T00:00:00+07:00') } : {}),
+      ...(toParam   ? { lte: new Date(toParam   + 'T23:59:59+07:00') } : {}),
     }
   }
 
