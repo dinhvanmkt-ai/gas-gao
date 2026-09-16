@@ -58,15 +58,9 @@ export default function PurchasesPage() {
 
   async function load() {
     setLoading(true)
-    const params = new URLSearchParams()
-    // Chỉ lọc ngày khi KHÔNG chọn NCC cụ thể
-    if (!selectedSupplier) {
-      const range = getRange(preset, customFrom, customTo)
-      params.set('from', range.from)
-      params.set('to', range.to)
-    } else {
-      params.set('supplierId', selectedSupplier)
-    }
+    const range = getRange(preset, customFrom, customTo)
+    const params = new URLSearchParams({ from: range.from, to: range.to })
+    if (selectedSupplier) params.set('supplierId', selectedSupplier)
     const d = await fetch(`/api/purchases?${params}`).then(r => r.ok ? r.json() : []).catch(() => [])
     setPurchases(Array.isArray(d) ? d : [])
     setLoading(false)
@@ -118,37 +112,26 @@ export default function PurchasesPage() {
 
         {/* Date Filter + Supplier Filter + New Button */}
         <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
-          {/* Date presets — ẩn khi đang lọc theo NCC cụ thể */}
-          {!selectedSupplier && (
-            <>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Calendar className="w-4 h-4" /><span className="font-medium">Kỳ:</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESETS.map(p => (
-                  <button key={p.key} onClick={() => setPreset(p.key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                      preset === p.key
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'bg-slate-800/60 text-slate-400 border-slate-700 hover:border-blue-500/50'
-                    }`}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              {preset === 'custom' && (
-                <div className="flex items-center gap-2">
-                  <DateInput value={customFrom} onChange={setCustomFrom} className="input py-1 text-xs w-36" />
-                  <span className="text-slate-500">→</span>
-                  <DateInput value={customTo} onChange={setCustomTo} className="input py-1 text-xs w-36" />
-                </div>
-              )}
-            </>
-          )}
-          {selectedSupplier && (
-            <div className="flex items-center gap-1.5 text-xs text-blue-400">
-              <Truck className="w-3.5 h-3.5" />
-              <span>Hiển thị tất cả đơn của NCC này (không giới hạn ngày)</span>
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Calendar className="w-4 h-4" /><span className="font-medium">Kỳ:</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map(p => (
+              <button key={p.key} onClick={() => setPreset(p.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  preset === p.key
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'bg-slate-800/60 text-slate-400 border-slate-700 hover:border-blue-500/50'
+                }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {preset === 'custom' && (
+            <div className="flex items-center gap-2">
+              <DateInput value={customFrom} onChange={setCustomFrom} className="input py-1 text-xs w-36" />
+              <span className="text-slate-500">→</span>
+              <DateInput value={customTo} onChange={setCustomTo} className="input py-1 text-xs w-36" />
             </div>
           )}
           {/* Supplier filter */}
@@ -176,11 +159,11 @@ export default function PurchasesPage() {
         {/* KPI */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <div className="card p-4">
-            <p className="text-xs text-slate-500 mb-1">{selectedSupplier ? 'Tổng phiếu NCC' : 'Tổng phiếu kỳ này'}</p>
+            <p className="text-xs text-slate-500 mb-1">Tổng phiếu kỳ này</p>
             <p className="text-2xl font-bold">{purchases.length}</p>
           </div>
           <div className="card p-4 kpi-blue">
-            <p className="text-xs text-slate-500 mb-1">{selectedSupplier ? 'Tổng chi NCC' : 'Tổng chi kỳ này'}</p>
+            <p className="text-xs text-slate-500 mb-1">Tổng chi kỳ này</p>
             <p className="text-xl font-bold text-blue-400">{formatCurrency(totalAmount)}</p>
           </div>
           <div className="card p-4">
@@ -324,7 +307,7 @@ export default function PurchasesPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-800/50 font-bold">
-                    <td colSpan={3} className="text-right text-slate-300">{selectedSupplier ? 'Tổng NCC' : 'Tổng kỳ'} ({purchases.length} phiếu)</td>
+                    <td colSpan={3} className="text-right text-slate-300">Tổng kỳ ({purchases.length} phiếu)</td>
                     <td className="text-blue-400">{formatCurrency(totalAmount)}</td>
                     <td colSpan={3}></td>
                   </tr>
