@@ -28,17 +28,6 @@ export async function GET(req: Request) {
     where.supplierId = supplierIdParam
   }
 
-  // DEBUG: ?debug=NH00027 → trả về raw data để chẩn đoán
-  const debugNo = searchParams.get('debug')
-  if (debugNo) {
-    const p = await prisma.purchase.findFirst({
-      where: { purchaseNo: debugNo },
-      include: { supplier: true },
-    })
-    const allSuppliers = await prisma.supplier.findMany({ select: { id: true, name: true, type: true } })
-    return NextResponse.json({ purchase: p, allSuppliers })
-  }
-
   const purchases = await prisma.purchase.findMany({
     where,
     orderBy: { purchaseDate: 'desc' },
