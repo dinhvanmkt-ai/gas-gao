@@ -147,12 +147,6 @@
   color: #f1f5f9 !important;
 }
 
-/* Custom Map Marker Pin */
-.custom-pin-container {
-  background: transparent !important;
-  border: none !important;
-}
-
 /* SVG Label Overlay sits above Leaflet panes */
 .leaflet-container {
   position: relative;
