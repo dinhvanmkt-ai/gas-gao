@@ -34,16 +34,17 @@ function getMarkerColor(c: CustomerMapItem): string {
   return '#10b981'
 }
 
-// ── Tạo divIcon: pin SVG + label tên bên dưới ────────────────────────────────
+// ── Tạo divIcon: label tên phía TRÊN pin SVG ─────────────────────────────────
 function makeIcon(c: CustomerMapItem, isSelected: boolean, showLabel: boolean): L.DivIcon {
   const color = getMarkerColor(c)
   const size = isSelected ? 36 : 28
   const pinH = Math.round(size * 1.3)
+  const labelH = showLabel ? 20 : 0
 
   const label = showLabel
     ? `<div style="
         position:absolute;
-        top:${pinH + 2}px;
+        top:0;
         left:50%;
         transform:translateX(-50%);
         background:white;
@@ -60,24 +61,26 @@ function makeIcon(c: CustomerMapItem, isSelected: boolean, showLabel: boolean): 
       ">${c.name}</div>`
     : ''
 
+  const totalH = labelH + pinH
   const html = `
-    <div style="position:relative;width:${size}px;height:${pinH + (showLabel ? 22 : 0)}px;">
-      <svg width="${size}" height="${pinH}" viewBox="0 0 24 36"
-           xmlns="http://www.w3.org/2000/svg"
-           style="filter:drop-shadow(0px 3px 4px rgba(0,0,0,0.45));">
-        <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 24 12 24s12-15.5 12-24c0-6.627-5.373-12-12-12zm0 17.5c-3.038 0-5.5-2.462-5.5-5.5S8.962 6.5 12 6.5s5.5 2.462 5.5 5.5-2.462 5.5-5.5 5.5z"
-              fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
-      </svg>
+    <div style="position:relative;width:${size}px;height:${totalH}px;">
       ${label}
+      <div style="position:absolute;top:${labelH}px;left:0;">
+        <svg width="${size}" height="${pinH}" viewBox="0 0 24 36"
+             xmlns="http://www.w3.org/2000/svg"
+             style="filter:drop-shadow(0px 3px 4px rgba(0,0,0,0.45));">
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 24 12 24s12-15.5 12-24c0-6.627-5.373-12-12-12zm0 17.5c-3.038 0-5.5-2.462-5.5-5.5S8.962 6.5 12 6.5s5.5 2.462 5.5 5.5-2.462 5.5-5.5 5.5z"
+                fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
+        </svg>
+      </div>
     </div>
   `
 
-  const totalH = pinH + (showLabel ? 22 : 0)
   return L.divIcon({
     html,
     className: '',
     iconSize: [size, totalH],
-    iconAnchor: [size / 2, pinH],
+    iconAnchor: [size / 2, totalH],
     popupAnchor: [0, -pinH],
   })
 }
