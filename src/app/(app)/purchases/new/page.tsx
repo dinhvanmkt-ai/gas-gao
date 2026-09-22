@@ -298,7 +298,7 @@ export default function NewPurchasePage() {
                         </td>
                         <td>
                           <input
-                            type="number" min={0} step={1000} value={item.unitCost}
+                            type="number" min={0} step={100} value={item.unitCost}
                             onChange={e => updateItem(idx, 'unitCost', parseFloat(e.target.value) || 0)}
                             className="input w-32 py-1 text-right"
                           />
@@ -458,13 +458,13 @@ export default function NewPurchasePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Giá bán lẻ (đ)</label>
-                  <input type="number" min={0} step={1000} value={newProduct.priceRetail || ''}
+                  <input type="number" min={0} step={100} value={newProduct.priceRetail || ''}
                     onChange={e => setNewProduct(p => ({ ...p, priceRetail: Number(e.target.value) || 0 }))}
                     className="input" />
                 </div>
                 <div>
                   <label className="label">Giá bán sỉ (đ)</label>
-                  <input type="number" min={0} step={1000} value={newProduct.priceWhole || ''}
+                  <input type="number" min={0} step={100} value={newProduct.priceWhole || ''}
                     onChange={e => setNewProduct(p => ({ ...p, priceWhole: Number(e.target.value) || 0 }))}
                     className="input" />
                 </div>

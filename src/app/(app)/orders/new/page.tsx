@@ -283,7 +283,7 @@ export default function NewOrderPage() {
                             className="input w-24 py-1 text-center" />
                         </td>
                         <td>
-                          <input type="number" min={0} step={1000} value={item.unitPrice}
+                          <input type="number" min={0} step={100} value={item.unitPrice}
                             onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
                             className="input w-32 py-1 text-right" />
                         </td>

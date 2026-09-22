@@ -388,13 +388,13 @@ export default function ProductsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Giá bán lẻ <span className="text-red-400">*</span></label>
-                  <input type="number" min={0} step={1000} value={form.priceRetail}
+                  <input type="number" min={0} step={100} value={form.priceRetail}
                     onChange={e => setForm(f => ({ ...f, priceRetail: e.target.value }))}
                     placeholder="0" className="input w-full" />
                 </div>
                 <div>
                   <label className="label">Giá bán sỉ</label>
-                  <input type="number" min={0} step={1000} value={form.priceWhole}
+                  <input type="number" min={0} step={100} value={form.priceWhole}
                     onChange={e => setForm(f => ({ ...f, priceWhole: e.target.value }))}
                     placeholder="Tùy chọn" className="input w-full" />
                 </div>

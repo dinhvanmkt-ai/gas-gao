@@ -552,13 +552,13 @@ export default function InventoryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Giá bán lẻ (đ)</label>
-                  <input type="number" min={0} step={1000} value={editProduct.priceRetail ?? ''}
+                  <input type="number" min={0} step={100} value={editProduct.priceRetail ?? ''}
                     onChange={e => setEditProduct((p: any) => ({ ...p, priceRetail: Number(e.target.value) || 0 }))}
                     className="input" />
                 </div>
                 <div>
                   <label className="label">Giá bán sỉ (đ)</label>
-                  <input type="number" min={0} step={1000} value={editProduct.priceWhole ?? ''}
+                  <input type="number" min={0} step={100} value={editProduct.priceWhole ?? ''}
                     onChange={e => setEditProduct((p: any) => ({ ...p, priceWhole: Number(e.target.value) || 0 }))}
                     className="input" placeholder="—" />
                 </div>
